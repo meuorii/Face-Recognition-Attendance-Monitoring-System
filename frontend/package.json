@@ -1,0 +1,48 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@emailjs/browser": "^4.4.1",
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/control_utils": "^0.6.1675466023",
+    "@mediapipe/drawing_utils": "^0.3.1675466124",
+    "@mediapipe/face_detection": "^0.4.1646425229",
+    "@mediapipe/face_mesh": "^0.4.1633559619",
+    "@tailwindcss/vite": "^4.0.9",
+    "@tensorflow-models/face-landmarks-detection": "^1.0.6",
+    "@tensorflow/tfjs-backend-webgl": "^4.13.0",
+    "@tensorflow/tfjs-converter": "^4.13.0",
+    "@tensorflow/tfjs-core": "^4.13.0",
+    "aos": "^2.3.4",
+    "axios": "^1.9.0",
+    "face-api.js": "^0.22.2",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
+    "react": "^19.0.0",
+    "react-datepicker": "^8.3.0",
+    "react-dom": "^19.0.0",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.5.2",
+    "react-toastify": "^11.0.5",
+    "tailwindcss": "^4.0.9"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "vite": "^6.2.0"
+  }
+}

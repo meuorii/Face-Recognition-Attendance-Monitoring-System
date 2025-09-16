@@ -1,0 +1,24 @@
+# Ignore Python/AI junk
+__pycache__/
+*.pyc
+*.pyo
+*.pkl
+*.pt
+*.h5
+env/
+venv/
+
+# Ignore face dataset
+/static/faces/
+
+# Ignore React build output
+node_modules/
+dist/
+build/
+
+# Ignore videos
+*.mp4
+*.avi
+
+# Ignore secrets
+.env
