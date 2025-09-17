@@ -27,7 +27,7 @@ export const instructorLogin = (data) => API.post("/instructor/login", data);
 
 // Instructor Subject Management
 export const getClassesByInstructor = async (instructorId) => {
-  const token = localStorage.getItem("instructor_token");
+  const token = localStorage.getItem("token");
   const res = await API.get(`/instructor/${instructorId}/classes`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -35,7 +35,7 @@ export const getClassesByInstructor = async (instructorId) => {
 };
 
 export const getAssignedStudents = async (classId) => {
-  const token = localStorage.getItem("instructor_token");
+  const token = localStorage.getItem("token");
   const res = await API.get(`/instructor/class/${classId}/assigned-students`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -43,7 +43,7 @@ export const getAssignedStudents = async (classId) => {
 };
 
 export const getAttendanceReportByClass = async (id, from, to) => {
-  const token = localStorage.getItem("instructor_token");
+  const token = localStorage.getItem("token");
   const params = new URLSearchParams();
   if (from) params.append("from", from);
   if (to) params.append("to", to);
@@ -64,7 +64,7 @@ export const getSubjectsByStudent = async (id) => {
 };
 
 export const getAttendanceLogsByStudent = async (id) => {
-  const token = localStorage.getItem("student_token");
+  const token = localStorage.getItem("token");
   const res = await API.get(`/student/${id}/attendance-logs`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -73,7 +73,7 @@ export const getAttendanceLogsByStudent = async (id) => {
 
 // Instructor Attendance Control
 export const activateAttendance = async (classId) => {
-  const token = localStorage.getItem("instructor_token");
+  const token = localStorage.getItem("token");
   const res = await API.post(
     "/attendance/start-session",
     { class_id: classId },
@@ -83,7 +83,7 @@ export const activateAttendance = async (classId) => {
 };
 
 export const stopAttendance = async (classId) => {
-  const token = localStorage.getItem("instructor_token");
+  const token = localStorage.getItem("token");
   const res = await API.post(
     "/attendance/stop-session",
     { class_id: classId },
