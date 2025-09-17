@@ -16,8 +16,11 @@ instructor_bp = Blueprint("instructor", __name__)
 
 students_collection = db["students"]
 classes_collection = db["classes"]
+attendance_collection = db["attendance_logs"]
 
-# ✅ Instructor Registration
+# -------------------------------------------------
+# 🔹 Instructor Registration
+# -------------------------------------------------
 @instructor_bp.route("/register", methods=["POST"])
 def register_instructor():
     data = request.get_json()
@@ -54,7 +57,9 @@ def register_instructor():
     return jsonify({"message": "Instructor registered successfully."}), 201
 
 
-# ✅ Instructor Login
+# -------------------------------------------------
+# 🔹 Instructor Login
+# -------------------------------------------------
 @instructor_bp.route("/login", methods=["POST"])
 def login_instructor():
     data = request.get_json()
@@ -74,18 +79,20 @@ def login_instructor():
     token = create_access_token(identity=instructor_id)
 
     return jsonify({
-    "message": "Login successful.",
-    "token": token,
-    "instructor": {
-        "instructor_id": instructor["instructor_id"],
-        "first_name": instructor["first_name"],
-        "last_name": instructor["last_name"],
-        "email": instructor.get("email", "")
-    }
-}), 200
+        "message": "Login successful.",
+        "token": token,
+        "instructor": {
+            "instructor_id": instructor["instructor_id"],
+            "first_name": instructor["first_name"],
+            "last_name": instructor["last_name"],
+            "email": instructor.get("email", "")
+        }
+    }), 200
 
 
-# ✅ Get all classes assigned to instructor
+# -------------------------------------------------
+# 🔹 Classes Assigned to Instructor
+# -------------------------------------------------
 @instructor_bp.route("/<string:instructor_id>/classes", methods=["GET"])
 @jwt_required()
 def get_classes_by_instructor(instructor_id):
@@ -111,17 +118,24 @@ def get_classes_by_instructor(instructor_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ Get Assigned Students for a Class
+# -------------------------------------------------
+# 🔹 Assigned Students per Class
+# -------------------------------------------------
 @instructor_bp.route("/class/<class_id>/assigned-students", methods=["GET"])
 @jwt_required()
 def get_assigned_students(class_id):
-    class_doc = classes_collection.find_one({"_id": ObjectId(class_id)})
-    if not class_doc:
-        return jsonify([]), 200
-    return jsonify(class_doc.get("students", [])), 200
+    try:
+        class_doc = classes_collection.find_one({"_id": ObjectId(class_id)})
+        if not class_doc:
+            return jsonify([]), 200
+        return jsonify(class_doc.get("students", [])), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-# ✅ Attendance Report by Class and Date
+# -------------------------------------------------
+# 🔹 Attendance Report
+# -------------------------------------------------
 @instructor_bp.route("/class/<class_id>/attendance-report", methods=["GET"])
 @jwt_required()
 def attendance_report(class_id):
@@ -144,11 +158,91 @@ def attendance_report(class_id):
     return jsonify(logs), 200
 
 
-# 🧪 Test Route: Show All Classes with Students
+# -------------------------------------------------
+# 🔹 Test: Show All Classes
+# -------------------------------------------------
 @instructor_bp.route("/test/class-list", methods=["GET"])
 def list_all_class_assignments():
     try:
         data = get_all_classes_with_details()
         return jsonify(data), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# -------------------------------------------------
+# 🔹 New: Instructor Overview Endpoints
+# -------------------------------------------------
+
+# ✅ Dashboard Stats
+@instructor_bp.route("/<string:instructor_id>/overview", methods=["GET"])
+@jwt_required()
+def instructor_overview(instructor_id):
+    try:
+        # Classes assigned
+        classes = list(classes_collection.find({"instructor_id": instructor_id}))
+
+        total_classes = len(classes)
+        total_students = sum(len(cls.get("students", [])) for cls in classes)
+        active_sessions = sum(1 for cls in classes if cls.get("is_attendance_active", False))
+
+        # Attendance rate (% present)
+        logs = list(attendance_collection.find({"class_id": {"$in": [str(cls["_id"]) for cls in classes]}}))
+        if logs:
+            present = sum(1 for log in logs if log.get("status") == "Present")
+            attendance_rate = round((present / len(logs)) * 100, 2)
+        else:
+            attendance_rate = 0
+
+        return jsonify({
+            "totalClasses": total_classes,
+            "totalStudents": total_students,
+            "activeSessions": active_sessions,
+            "attendanceRate": attendance_rate,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ✅ Attendance Trend (weekly average)
+@instructor_bp.route("/<string:instructor_id>/overview/attendance-trend", methods=["GET"])
+@jwt_required()
+def instructor_attendance_trend(instructor_id):
+    try:
+        pipeline = [
+            {"$match": {"instructor_id": instructor_id}},
+            {"$group": {
+                "_id": {"week": {"$isoWeek": {"$toDate": "$date"}}},
+                "rate": {"$avg": {"$cond": [{"$eq": ["$status", "Present"]}, 100, 0]}}
+            }},
+            {"$sort": {"_id.week": 1}}
+        ]
+        trend = list(attendance_collection.aggregate(pipeline))
+        return jsonify(trend), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ✅ Class Summary for Overview
+@instructor_bp.route("/<string:instructor_id>/overview/classes", methods=["GET"])
+@jwt_required()
+def instructor_class_summary(instructor_id):
+    try:
+        classes = list(classes_collection.find({"instructor_id": instructor_id}))
+        results = []
+        for cls in classes:
+            results.append({
+                "_id": str(cls["_id"]),
+                "subject_code": cls.get("subject_code"),
+                "subject_title": cls.get("subject_title"),
+                "course": cls.get("course"),
+                "year_level": cls.get("year_level"),
+                "semester": cls.get("semester"),
+                "section": cls.get("section"),
+                "schedule_blocks": cls.get("schedule_blocks", []),
+                "students_count": len(cls.get("students", [])),
+                "is_attendance_active": cls.get("is_attendance_active", False),
+            })
+        return jsonify(results), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

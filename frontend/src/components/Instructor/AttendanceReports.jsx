@@ -9,6 +9,7 @@ import {
   getAttendanceReportByClass,
 } from "../../services/api";
 import { toast } from "react-toastify";
+import { FaFilePdf, FaCalendarAlt, FaClipboardList } from "react-icons/fa";
 
 const AttendanceReport = () => {
   const [classes, setClasses] = useState([]);
@@ -19,21 +20,26 @@ const AttendanceReport = () => {
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
-  const instructor = JSON.parse(localStorage.getItem("instructor_data"));
+  // ✅ Consistent with Subjects.jsx
+  const instructor = JSON.parse(localStorage.getItem("userData"));
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    if (instructor?.instructor_id) {
+    if (instructor?.instructor_id && token) {
       fetchClasses();
+    } else {
+      toast.error("No instructor data found. Please log in again.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchClasses = async () => {
     setLoadingClasses(true);
     try {
-      const data = await getClassesByInstructor(instructor.instructor_id);
+      const data = await getClassesByInstructor(instructor.instructor_id, token);
       setClasses(data);
     } catch (err) {
-      console.error("Failed to load classes:", err);
+      console.error("❌ Failed to load classes:", err);
       toast.error("Failed to load classes.");
     } finally {
       setLoadingClasses(false);
@@ -50,7 +56,7 @@ const AttendanceReport = () => {
       const data = await getAttendanceReportByClass(selectedClass, from, to);
       setLogs(data);
     } catch (err) {
-      console.error("Failed to fetch attendance logs:", err);
+      console.error("❌ Failed to fetch attendance logs:", err);
       toast.error("Failed to fetch attendance logs.");
     } finally {
       setLoadingLogs(false);
@@ -74,81 +80,111 @@ const AttendanceReport = () => {
   };
 
   return (
-    <div className="bg-gray-800 p-6 rounded-xl shadow-lg w-full">
-      <h2 className="text-green-400 font-bold text-xl mb-4">
-        Instructor Attendance Report
-      </h2>
+    <div className="bg-neutral-900 p-8 rounded-2xl shadow-lg border border-neutral-700 w-full">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <FaClipboardList className="text-green-400 text-2xl" />
+        <h2 className="text-2xl font-bold text-green-400">Attendance Report</h2>
+      </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 mb-6">
+      {/* Filters */}
+      <div className="flex flex-col lg:flex-row gap-4 mb-8">
         <select
           value={selectedClass}
           onChange={(e) => setSelectedClass(e.target.value)}
           disabled={loadingClasses}
-          className="w-full lg:w-1/3 px-4 py-2 rounded-lg bg-gray-700 text-white"
+          className="flex-1 px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
         >
           <option value="">-- Select Class --</option>
           {classes.map((c) => (
             <option key={c._id} value={c._id}>
-              {c.subject_code} - {c.subject_title}
+              {c.subject_code} – {c.subject_title}
             </option>
           ))}
         </select>
 
-        <DatePicker
-          selected={startDate}
-          onChange={(date) => setStartDate(date)}
-          placeholderText="Start Date"
-          className="px-4 py-2 rounded-lg bg-gray-700 text-white"
-        />
-        <DatePicker
-          selected={endDate}
-          onChange={(date) => setEndDate(date)}
-          placeholderText="End Date"
-          className="px-4 py-2 rounded-lg bg-gray-700 text-white"
-        />
+        {/* Start Date */}
+        <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
+          <FaCalendarAlt className="text-green-400" />
+          <DatePicker
+            selected={startDate}
+            onChange={(date) => setStartDate(date)}
+            placeholderText="Start Date"
+            className="bg-transparent text-white outline-none"
+          />
+        </div>
+
+        {/* End Date */}
+        <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
+          <FaCalendarAlt className="text-green-400" />
+          <DatePicker
+            selected={endDate}
+            onChange={(date) => setEndDate(date)}
+            placeholderText="End Date"
+            className="bg-transparent text-white outline-none"
+          />
+        </div>
 
         <button
           onClick={fetchLogs}
           disabled={loadingLogs}
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-2 rounded-lg text-white font-semibold"
+          className="px-6 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold shadow transition disabled:opacity-50"
         >
           {loadingLogs ? "Loading..." : "Filter"}
         </button>
       </div>
 
+      {/* Table */}
       {logs.length > 0 ? (
         <>
-          <div className="overflow-x-auto rounded-lg">
-            <table className="min-w-full text-sm text-left text-gray-300 mb-4 border border-gray-700">
-              <thead className="bg-gray-700 text-green-300">
+          <div className="overflow-x-auto rounded-lg border border-neutral-700">
+            <table className="min-w-full text-sm text-left text-gray-300">
+              <thead className="bg-neutral-800 text-green-400">
                 <tr>
-                  <th className="px-4 py-2">Date</th>
+                  <th className="px-4 py-3">Date</th>
                   <th>Student ID</th>
-                  <th>Name</th>
+                  <th>Full Name</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log, index) => (
-                  <tr key={index} className="border-b border-gray-600">
-                    <td className="px-4 py-2">{log.date}</td>
+                  <tr
+                    key={index}
+                    className="border-b border-neutral-700 hover:bg-neutral-800/50 transition"
+                  >
+                    <td className="px-4 py-3">{log.date}</td>
                     <td>{log.student_id}</td>
-                    <td>{`${log.first_name} ${log.last_name}`}</td>
-                    <td>{log.status}</td>
+                    <td className="font-medium text-white">
+                      {`${log.first_name} ${log.last_name}`}
+                    </td>
+                    <td
+                      className={`${
+                        log.status === "Present"
+                          ? "text-green-400"
+                          : "text-red-400"
+                      } font-semibold`}
+                    >
+                      {log.status}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <button
-            onClick={exportToPDF}
-            className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-semibold text-white"
-          >
-            Export PDF
-          </button>
+
+          {/* Export Button */}
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={exportToPDF}
+              className="flex items-center gap-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg shadow transition"
+            >
+              <FaFilePdf /> Export as PDF
+            </button>
+          </div>
         </>
       ) : (
-        <p className="text-gray-400 text-center">
+        <p className="text-gray-400 text-center mt-6">
           {loadingLogs ? "Loading attendance logs..." : "No attendance records found."}
         </p>
       )}
