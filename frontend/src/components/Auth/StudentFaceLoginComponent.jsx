@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
-import { FaCamera, FaUserPlus } from "react-icons/fa";
 import { studentFaceLogin } from "../../services/api";
 import * as mpFaceMesh from "@mediapipe/face_mesh";
 import { Camera } from "@mediapipe/camera_utils";
@@ -19,6 +18,9 @@ function StudentFaceLoginComponent() {
   const [recognizedStudent, setRecognizedStudent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+
+  const attemptingRef = useRef(false);
 
   // ✅ Redirect if already logged in
   useEffect(() => {
@@ -105,8 +107,25 @@ function StudentFaceLoginComponent() {
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
 
     if (results.multiFaceLandmarks?.length) {
-      if (!faceDetected) setFaceDetected(true);
+      if (!faceDetected) {
+        setFaceDetected(true);
 
+        // 🚀 Trigger auto-scan when face first appears
+        if (
+          !attemptingRef.current &&
+          !isLoggingIn &&
+          !loading &&
+          !recognizedStudent &&
+          Date.now() >= cooldownUntil
+        ) {
+          attemptingRef.current = true;
+          setTimeout(() => {
+            handleScanFace();
+          }, 800); // small delay for stability
+        }
+      }
+
+      // Draw bounding box
       const landmarks = results.multiFaceLandmarks[0];
       const xs = landmarks.map((p) => p.x * canvas.width);
       const ys = landmarks.map((p) => p.y * canvas.height);
@@ -121,16 +140,16 @@ function StudentFaceLoginComponent() {
       ctx.rect(xMin, yMin, xMax - xMin, yMax - yMin);
       ctx.stroke();
     } else {
-      if (faceDetected) setFaceDetected(false);
+      if (faceDetected) {
+        setFaceDetected(false);
+        attemptingRef.current = false;
+      }
     }
   };
 
   const captureImage = () => {
     const video = videoRef.current;
-    if (!video || !video.videoWidth || !video.videoHeight) {
-      toast.error("⚠️ Video not ready yet.");
-      return null;
-    }
+    if (!video || !video.videoWidth || !video.videoHeight) return null;
 
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
@@ -146,36 +165,55 @@ function StudentFaceLoginComponent() {
 
   const handleScanFace = async () => {
     if (isLoggingIn || loading) return;
-
-    const imgData = captureImage();
-    if (!imgData) return;
+    if (Date.now() < cooldownUntil) return;
 
     setLoading(true);
+    const imgData = captureImage();
+    if (!imgData) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await studentFaceLogin({ image: imgData });
       const data = res.data;
 
       if (res.status === 200 && data?.student) {
-        const student = data.student;
+        if (data.anti_spoof_probs && data.anti_spoof_probs.real < 0.8) {
+          toast.error(
+            `🚫 Spoof suspected (real=${(
+              data.anti_spoof_probs.real * 100
+            ).toFixed(1)}%)`
+          );
+          attemptingRef.current = false;
+          setCooldownUntil(Date.now() + 5000);
+          return;
+        }
 
+        const student = data.student;
         setRecognizedStudent(student);
         toast.success(`🎉 Welcome, ${student.first_name}! Logging in...`);
 
-        // ✅ Delay navigation so toast can show
+        // ✅ Delay so toast shows before redirect
         setTimeout(() => {
           loginStudent(data.token, student);
-        }, 1500);
+        }, 1000);
       } else {
-        toast.error("❌ Face not recognized. Try again or register.");
+        toast.error("❌ Face not recognized. Try again.");
+        attemptingRef.current = false;
+        setCooldownUntil(Date.now() + 5000);
       }
     } catch (err) {
       console.error("Face login error:", err);
       toast.error(err.response?.data?.error || "Server error.");
+      attemptingRef.current = false;
+      setCooldownUntil(Date.now() + 5000);
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ keep your original loginStudent untouched
   const loginStudent = (token, student) => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
@@ -187,20 +225,14 @@ function StudentFaceLoginComponent() {
     navigate("/student/dashboard", { replace: true });
   };
 
-  const handleRegister = () => {
-    navigate("/student/register");
-  };
-
   return (
     <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center px-4 py-8">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-green-400 mb-2">Student Face Login</h1>
-        <p className="text-gray-300 text-lg">
-          Align your face and click scan to login
-        </p>
+        <p className="text-gray-300 text-lg">Align your face to login automatically</p>
       </div>
 
-      <div className="relative w-80 h-80 rounded-2xl overflow-hidden border-4 border-green-500 shadow-xl mb-6">
+      <div className="relative w-100 h-100 rounded-2xl overflow-hidden border-4 border-green-500 shadow-xl mb-6">
         <video
           ref={videoRef}
           autoPlay
@@ -217,68 +249,17 @@ function StudentFaceLoginComponent() {
       </div>
 
       <div className="text-center mb-6">
-        {recognizedStudent ? (
-          <p className="text-xl text-green-300 font-semibold mb-1">
-            Welcome {recognizedStudent.first_name}! 👋
-          </p>
-        ) : faceDetected ? (
-          <p className="text-blue-300">Face detected — ready to scan</p>
+        {faceDetected ? (
+          recognizedStudent ? (
+            <p className="text-xl text-green-300 font-semibold mb-1">
+              Welcome {recognizedStudent.first_name}! 👋
+            </p>
+          ) : (
+            <p className="text-blue-300">Face detected — scanning...</p>
+          )
         ) : (
           <p className="text-gray-400">Align your face to the camera</p>
         )}
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-6 justify-center items-center text-center">
-        <div>
-          <button
-            onClick={handleScanFace}
-            disabled={loading || isLoggingIn}
-            className="bg-green-500 hover:bg-green-600 disabled:opacity-50 px-6 py-3 rounded-lg text-lg font-semibold flex items-center justify-center gap-2 min-w-[200px]"
-          >
-            {loading ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  />
-                </svg>
-                Scanning...
-              </>
-            ) : (
-              <>
-                <FaCamera />
-                Scan Face
-              </>
-            )}
-          </button>
-          <p className="text-sm text-gray-400 mt-2">Start face recognition</p>
-        </div>
-
-        <div>
-          <button
-            onClick={handleRegister}
-            className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-lg text-lg font-semibold flex items-center justify-center gap-2 min-w-[200px]"
-          >
-            <FaUserPlus />
-            Register
-          </button>
-          <p className="text-sm text-gray-400 mt-2">Register a new student</p>
-        </div>
       </div>
 
       <ToastContainer position="top-right" autoClose={3000} theme="dark" />
