@@ -17,7 +17,6 @@ const InstructorDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview"); // 👈 Default to Overview
   const [instructor, setInstructor] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeSubjectId, setActiveSubjectId] = useState(null);
 
   useEffect(() => {
     AOS.init({ duration: 600 });
@@ -47,9 +46,8 @@ const InstructorDashboard = () => {
       case "subject":
         return (
           <Subjects
-            onActivateSession={(id) => {
-              setActiveSubjectId(id);
-              setActiveTab("session");
+            onActivateSession={() => {
+              setActiveTab("session"); // ✅ No need to pass ID anymore
             }}
           />
         );
@@ -58,12 +56,7 @@ const InstructorDashboard = () => {
       case "attendance":
         return <AttendanceReports />;
       case "session":
-        return (
-          <AttendanceSession
-            subjectId={activeSubjectId}
-            instructorId={instructor?.instructor_id}
-          />
-        );
+        return <AttendanceSession />; // ✅ Self-fetches active session
       default:
         return <InstructorOverview />;
     }

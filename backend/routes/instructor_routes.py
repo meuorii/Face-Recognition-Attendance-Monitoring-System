@@ -4,7 +4,7 @@ import bcrypt
 from bson import ObjectId
 from datetime import datetime
 from config.db_config import db
-from models.attendance_logs_model import get_attendance_logs_by_subject_and_date
+from models.attendance_logs_model import get_attendance_logs_by_class_and_date
 from models.instructor_model import (
     find_instructor_by_id,
     find_instructor_by_email,
@@ -102,7 +102,6 @@ def get_classes_by_instructor(instructor_id):
         for cls in classes:
             results.append({
                 "_id": str(cls["_id"]),
-                "subject_id": cls.get("subject_id"),
                 "subject_code": cls.get("subject_code"),
                 "subject_title": cls.get("subject_title"),
                 "course": cls.get("course"),
@@ -152,7 +151,7 @@ def attendance_report(class_id):
     except:
         return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
 
-    logs = get_attendance_logs_by_subject_and_date(
+    logs = get_attendance_logs_by_class_and_date(
         class_id, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
     )
     return jsonify(logs), 200
@@ -171,7 +170,7 @@ def list_all_class_assignments():
 
 
 # -------------------------------------------------
-# 🔹 New: Instructor Overview Endpoints
+# 🔹 Instructor Overview Endpoints
 # -------------------------------------------------
 
 # ✅ Dashboard Stats
@@ -186,13 +185,15 @@ def instructor_overview(instructor_id):
         total_students = sum(len(cls.get("students", [])) for cls in classes)
         active_sessions = sum(1 for cls in classes if cls.get("is_attendance_active", False))
 
-        # Attendance rate (% present)
+        # Attendance rate (% Present among all student logs)
         logs = list(attendance_collection.find({"class_id": {"$in": [str(cls["_id"]) for cls in classes]}}))
-        if logs:
-            present = sum(1 for log in logs if log.get("status") == "Present")
-            attendance_rate = round((present / len(logs)) * 100, 2)
-        else:
-            attendance_rate = 0
+        total_records, present_count = 0, 0
+        for log in logs:
+            for student in log.get("students", []):
+                total_records += 1
+                if student.get("status") == "Present":
+                    present_count += 1
+        attendance_rate = round((present_count / total_records) * 100, 2) if total_records else 0
 
         return jsonify({
             "totalClasses": total_classes,
@@ -211,9 +212,10 @@ def instructor_attendance_trend(instructor_id):
     try:
         pipeline = [
             {"$match": {"instructor_id": instructor_id}},
+            {"$unwind": "$students"},
             {"$group": {
                 "_id": {"week": {"$isoWeek": {"$toDate": "$date"}}},
-                "rate": {"$avg": {"$cond": [{"$eq": ["$status", "Present"]}, 100, 0]}}
+                "rate": {"$avg": {"$cond": [{"$eq": ["$students.status", "Present"]}, 100, 0]}}
             }},
             {"$sort": {"_id.week": 1}}
         ]

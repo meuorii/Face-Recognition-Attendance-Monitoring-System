@@ -3,11 +3,12 @@ from datetime import datetime
 
 attendance_logs_collection = db["attendance_logs"]
 
-
 # --------- Helpers ---------
 def _today_str():
     return datetime.now().strftime("%Y-%m-%d")
 
+def _now_time():
+    return datetime.now().strftime("%H:%M:%S")
 
 # ✅ Upsert a class/day log & add/update a student entry
 def log_attendance(class_data, student_data, status="Present", date_str=None):
@@ -58,7 +59,8 @@ def log_attendance(class_data, student_data, status="Present", date_str=None):
         {"$set": {
             "students.$.first_name": student_data["first_name"],
             "students.$.last_name": student_data["last_name"],
-            "students.$.status": status
+            "students.$.status": status,
+            "students.$.time": _now_time()
         }}
     )
 
@@ -70,10 +72,10 @@ def log_attendance(class_data, student_data, status="Present", date_str=None):
                 "student_id": student_data["student_id"],
                 "first_name": student_data["first_name"],
                 "last_name": student_data["last_name"],
-                "status": status
+                "status": status,
+                "time": _now_time()
             }}}
         )
-
 
 # ✅ Check if the student already has an entry (for this class & date)
 def has_logged_attendance(student_id, class_id, date_str=None):
@@ -84,7 +86,6 @@ def has_logged_attendance(student_id, class_id, date_str=None):
         "date": date_str,
         "students.student_id": student_id
     }) is not None
-
 
 # ✅ Get all class/day docs that include this student (with that student’s entry)
 def get_attendance_by_student(student_id):
@@ -107,17 +108,15 @@ def get_attendance_by_student(student_id):
                 "course": d.get("course"),
                 "section": d.get("section"),
                 "date": d.get("date"),
-                "student": s  # {student_id, first_name, last_name, status}
+                "student": s  # {student_id, first_name, last_name, status, time}
             })
     return out
-
 
 # ✅ Get all logs by class (each doc = one date, with students[])
 def get_attendance_by_class(class_id):
     return list(
         attendance_logs_collection.find({"class_id": class_id}).sort("date", 1)
     )
-
 
 # ✅ Get logs in a date range for a class (each doc = one date, with students[])
 def get_attendance_logs_by_class_and_date(class_id, start_date, end_date):
@@ -127,7 +126,6 @@ def get_attendance_logs_by_class_and_date(class_id, start_date, end_date):
             "date": {"$gte": start_date, "$lte": end_date}
         }
     ).sort("date", 1))
-
 
 # ✅ Optional: bulk-mark ABSENT for students who didn’t log by cutoff
 def mark_absent_bulk(class_data, date_str, student_list):
@@ -157,16 +155,16 @@ def mark_absent_bulk(class_data, date_str, student_list):
                 "student_id": s["student_id"],
                 "first_name": s["first_name"],
                 "last_name": s["last_name"],
-                "status": "Absent"
+                "status": "Absent",
+                "time": _now_time()
             }}}
         )
-
 
 # ✅ Maintenance: create useful indexes
 def ensure_indexes():
     attendance_logs_collection.create_index(
         [("class_id", 1), ("date", 1)],
-        unique=False  # set to True if you want to enforce one doc per class/day
+        unique=False  # set to True if you want strict one doc per class/day
     )
     attendance_logs_collection.create_index(
         [("students.student_id", 1), ("date", 1)]

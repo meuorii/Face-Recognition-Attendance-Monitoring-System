@@ -252,14 +252,16 @@ def get_cor_file(filename):
         return jsonify({"error": "File not found"}), 404
 
 
-# ✅ Assigned Subjects
+# ✅ Assigned Subjects by student_id
 @student_bp.route("/<student_id>/assigned-subjects", methods=["GET"])
 @jwt_required()
 def get_assigned_subjects(student_id):
     try:
+        # query using string-based student_id
         subjects = get_subjects_by_student(student_id) or []
         return jsonify(_list_to_jsonable(subjects)), 200
     except Exception as e:
+        print("❌ Error in assigned-subjects:", str(e))
         return jsonify({"error": str(e)}), 500
 
 

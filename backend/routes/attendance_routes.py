@@ -11,12 +11,12 @@ from config.db_config import db
 # 🔹 Work with classes instead of subjects
 classes_collection = db["classes"]
 
-# 🔄 Attendance model helpers (now class-based)
+# 🔄 Attendance model helpers (class-based)
 from models.attendance_model import (
     log_attendance as log_attendance_model,
-    has_logged_attendance,
-    get_attendance_logs_by_class_and_date,   # ✅ updated
-    get_attendance_by_class,                 # ✅ updated
+    has_logged_attendance,   # ✅ fixed name
+    get_attendance_logs_by_class_and_date,
+    get_attendance_by_class,
     mark_absent_bulk,
 )
 
@@ -47,7 +47,6 @@ def _class_to_payload(cls):
         "attendance_end_time": cls.get("attendance_end_time"),
         "students": cls.get("students", []),
     }
-
 
 
 # ✅ Start attendance session
@@ -111,11 +110,26 @@ def get_active_session():
     try:
         cls = classes_collection.find_one({"is_attendance_active": True})
         if cls:
+            class_payload = {
+                "class_id": str(cls["_id"]),
+                "subject_code": cls.get("subject_code"),
+                "subject_title": cls.get("subject_title"),
+                "instructor_id": cls.get("instructor_id"),
+                "instructor_first_name": cls.get("instructor_first_name"),
+                "instructor_last_name": cls.get("instructor_last_name"),
+                "course": cls.get("course"),
+                "section": cls.get("section"),
+                "is_attendance_active": cls.get("is_attendance_active", False),
+                "attendance_start_time": cls.get("attendance_start_time"),
+                "attendance_end_time": cls.get("attendance_end_time"),
+                "students": cls.get("students", []),
+            }
+
             return jsonify({
                 "active": True,
-                # ✅ Send full class document with students
-                "class": _class_to_payload(cls),
+                "class": class_payload
             }), 200
+
         return jsonify({"active": False}), 200
 
     except Exception:
@@ -134,25 +148,31 @@ def log_attendance():
         if missing:
             return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
+        class_id = data["class_id"]
+        status = data["status"]
+        student_data = data["student"]
         date_str = data.get("date") or _today_str()
 
-        class_data = {
-            "class_id": data["class_id"],
-            "subject_code": data.get("subject_code"),
-            "subject_title": data.get("subject_title"),
-            "instructor_id": data.get("instructor_id"),
-            "instructor_first_name": data.get("instructor_first_name"),
-            "instructor_last_name": data.get("instructor_last_name"),
-            "course": data.get("course"),
-            "section": data.get("section"),
-        }
-
-        student_data = data["student"]
-        status = data["status"]
-
+        # Validate student fields
         for f in ["student_id", "first_name", "last_name"]:
             if f not in student_data:
                 return jsonify({"error": f"Missing student.{f}"}), 400
+
+        # ✅ Always fetch class info from DB (ensures subject_code/title not null)
+        cls = classes_collection.find_one({"_id": ObjectId(class_id)})
+        if not cls:
+            return jsonify({"error": "Class not found"}), 404
+
+        class_data = {
+            "class_id": str(cls["_id"]),
+            "subject_code": cls.get("subject_code"),
+            "subject_title": cls.get("subject_title"),
+            "instructor_id": cls.get("instructor_id"),
+            "instructor_first_name": cls.get("instructor_first_name"),
+            "instructor_last_name": cls.get("instructor_last_name"),
+            "course": cls.get("course"),
+            "section": cls.get("section"),
+        }
 
         log_attendance_model(
             class_data=class_data,
@@ -187,7 +207,7 @@ def has_logged():
         if not student_id or not class_id:
             return jsonify({"error": "Missing student_id or class_id"}), 400
 
-        exists = has_logged_attendance(student_id, class_id, date_str)
+        exists = has_logged_attendance(student_id, class_id, date_str)  # ✅ fixed name
         return jsonify({"exists": bool(exists)}), 200
 
     except Exception:
@@ -236,15 +256,21 @@ def mark_absent():
             return jsonify({"error": "Missing class_id or students[]"}), 400
 
         date_str = data.get("date") or _today_str()
+
+        # ✅ Always fetch class info from DB
+        cls = classes_collection.find_one({"_id": ObjectId(class_id)})
+        if not cls:
+            return jsonify({"error": "Class not found"}), 404
+
         class_data = {
-            "class_id": class_id,
-            "subject_code": data.get("subject_code"),
-            "subject_title": data.get("subject_title"),
-            "instructor_id": data.get("instructor_id"),
-            "instructor_first_name": data.get("instructor_first_name"),
-            "instructor_last_name": data.get("instructor_last_name"),
-            "course": data.get("course"),
-            "section": data.get("section"),
+            "class_id": str(cls["_id"]),
+            "subject_code": cls.get("subject_code"),
+            "subject_title": cls.get("subject_title"),
+            "instructor_id": cls.get("instructor_id"),
+            "instructor_first_name": cls.get("instructor_first_name"),
+            "instructor_last_name": cls.get("instructor_last_name"),
+            "course": cls.get("course"),
+            "section": cls.get("section"),
         }
 
         mark_absent_bulk(class_data, date_str, students)

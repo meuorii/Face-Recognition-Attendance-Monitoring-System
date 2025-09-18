@@ -46,7 +46,9 @@ const Subjects = ({ onActivateSession }) => {
       await activateAttendance(classId);
       toast.success("✅ Attendance session activated!");
       fetchClasses();
-      if (onActivateSession) onActivateSession(classId);
+
+      // ✅ Trigger parent (InstructorDashboard) to switch tab
+      if (onActivateSession) onActivateSession();
     } catch (err) {
       console.error("❌ Activate failed:", err.response?.data || err.message);
       toast.error("Failed to activate session.");
@@ -69,32 +71,30 @@ const Subjects = ({ onActivateSession }) => {
     }
   };
 
-  // ✅ Clean schedule formatting
   // ✅ Clean schedule formatting (unique days)
-const formatScheduleBlocks = (blocks) => {
-  if (!Array.isArray(blocks) || blocks.length === 0) return "No schedule";
+  const formatScheduleBlocks = (blocks) => {
+    if (!Array.isArray(blocks) || blocks.length === 0) return "No schedule";
 
-  // Collect unique days
-  const daysSet = new Set();
-  const times = [];
+    const daysSet = new Set();
+    const times = [];
 
-  blocks.forEach((b) => {
-    if (Array.isArray(b.days)) {
-      b.days.forEach((d) => daysSet.add(d));
-    } else if (b.day) {
-      daysSet.add(b.day);
-    }
+    blocks.forEach((b) => {
+      if (Array.isArray(b.days)) {
+        b.days.forEach((d) => daysSet.add(d));
+      } else if (b.day) {
+        daysSet.add(b.day);
+      }
 
-    if (b.start && b.end) {
-      times.push(`${b.start}–${b.end}`);
-    } else if (b.time) {
-      times.push(b.time);
-    }
-  });
+      if (b.start && b.end) {
+        times.push(`${b.start}–${b.end}`);
+      } else if (b.time) {
+        times.push(b.time);
+      }
+    });
 
-  const days = Array.from(daysSet).join(", ");
-  return `${days} • ${times.join(", ")}`;
-};
+    const days = Array.from(daysSet).join(", ");
+    return `${days} • ${times.join(", ")}`;
+  };
 
   return (
     <div className="bg-neutral-900 p-8 rounded-2xl shadow-lg max-w-7xl mx-auto">
