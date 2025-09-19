@@ -9,7 +9,25 @@ import {
   getAttendanceReportByClass,
 } from "../../services/api";
 import { toast } from "react-toastify";
-import { FaFilePdf, FaCalendarAlt, FaClipboardList } from "react-icons/fa";
+import {
+  FaFilePdf,
+  FaCalendarAlt,
+  FaClipboardList,
+  FaListUl,
+} from "react-icons/fa";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
+const COLORS = ["#22c55e", "#ef4444", "#facc15"]; // green, red, yellow
 
 const AttendanceReport = () => {
   const [classes, setClasses] = useState([]);
@@ -19,8 +37,9 @@ const AttendanceReport = () => {
   const [endDate, setEndDate] = useState(null);
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [expandedStudent, setExpandedStudent] = useState(null);
 
-  // ✅ Consistent with Subjects.jsx
   const instructor = JSON.parse(localStorage.getItem("userData"));
   const token = localStorage.getItem("token");
 
@@ -47,37 +66,100 @@ const AttendanceReport = () => {
   };
 
   const fetchLogs = async () => {
-    if (!selectedClass) return toast.warning("Please select a class.");
-    const from = startDate ? startDate.toISOString().split("T")[0] : "";
-    const to = endDate ? endDate.toISOString().split("T")[0] : "";
+  if (!selectedClass) return toast.warning("Please select a class.");
 
-    setLoadingLogs(true);
-    try {
-      const data = await getAttendanceReportByClass(selectedClass, from, to);
-      setLogs(data);
-    } catch (err) {
-      console.error("❌ Failed to fetch attendance logs:", err);
-      toast.error("Failed to fetch attendance logs.");
-    } finally {
-      setLoadingLogs(false);
-    }
-  };
+  const from = startDate ? startDate.toISOString().split("T")[0] : null;
+  const to = endDate ? endDate.toISOString().split("T")[0] : null;
+
+  setLoadingLogs(true);
+  try {
+    const data = await getAttendanceReportByClass(selectedClass, from, to);
+    console.log("📡 Attendance API Response:", data);
+
+    // Group logs by student_id
+    const grouped = {};
+    data.forEach((log) => {
+      const sid = log.student_id;
+      if (!sid) return;
+
+      if (!grouped[sid]) {
+        grouped[sid] = {
+          student_id: log.student_id,
+          first_name: log.first_name,
+          last_name: log.last_name,
+          total_attendances: 0,
+          present: 0,
+          absent: 0,
+          late: 0,
+          statuses: [],
+        };
+      }
+      grouped[sid].total_attendances++;
+      if (log.status === "Present") grouped[sid].present++;
+      if (log.status === "Absent") grouped[sid].absent++;
+      if (log.status === "Late") grouped[sid].late++;
+      grouped[sid].statuses.push({
+        date: log.date,
+        status: log.status,
+        time: log.time,
+      });
+    });
+
+    setLogs(Object.values(grouped));
+  } catch (err) {
+    console.error("❌ Failed to fetch attendance logs:", err);
+    toast.error("Failed to fetch attendance logs.");
+  } finally {
+    setLoadingLogs(false);
+  }
+};
+
 
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text("Attendance Report", 14, 15);
     autoTable(doc, {
       startY: 25,
-      head: [["Date", "Student ID", "Name", "Status"]],
+      head: [["Student ID", "Name", "Present", "Absent", "Late", "Total"]],
       body: logs.map((log) => [
-        log.date,
         log.student_id,
         `${log.first_name} ${log.last_name}`,
-        log.status,
+        log.present,
+        log.absent,
+        log.late,
+        log.total_attendances,
       ]),
     });
     doc.save("attendance_report.pdf");
   };
+
+  // ✅ Summary stats
+  const totalStudents = logs.length;
+  const totalSessions = logs.reduce(
+    (sum, log) => Math.max(sum, log.statuses.length),
+    0
+  );
+  const totalRecords = logs.reduce(
+    (sum, log) => sum + log.total_attendances,
+    0
+  );
+  const totalPresent = logs.reduce((sum, log) => sum + log.present, 0);
+  const attendanceRate = totalRecords
+    ? ((totalPresent / totalRecords) * 100).toFixed(2)
+    : 0;
+
+  // ✅ Chart data
+  const pieData = [
+    { name: "Present", value: logs.reduce((sum, log) => sum + log.present, 0) },
+    { name: "Absent", value: logs.reduce((sum, log) => sum + log.absent, 0) },
+    { name: "Late", value: logs.reduce((sum, log) => sum + log.late, 0) },
+  ];
+  const barData = logs.map((log) => ({
+    name: `${log.first_name} ${log.last_name}`,
+    Present: log.present,
+    Absent: log.absent,
+    Late: log.late,
+  }));
 
   return (
     <div className="bg-neutral-900 p-8 rounded-2xl shadow-lg border border-neutral-700 w-full">
@@ -93,17 +175,16 @@ const AttendanceReport = () => {
           value={selectedClass}
           onChange={(e) => setSelectedClass(e.target.value)}
           disabled={loadingClasses}
-          className="flex-1 px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+          className="flex-1 px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white"
         >
           <option value="">-- Select Class --</option>
           {classes.map((c) => (
-            <option key={c._id} value={c._id}>
+            <option key={c._id} value={c.class_id || c._id}>
               {c.subject_code} – {c.subject_title}
             </option>
           ))}
         </select>
 
-        {/* Start Date */}
         <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
           <FaCalendarAlt className="text-green-400" />
           <DatePicker
@@ -114,7 +195,6 @@ const AttendanceReport = () => {
           />
         </div>
 
-        {/* End Date */}
         <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
           <FaCalendarAlt className="text-green-400" />
           <DatePicker
@@ -125,13 +205,87 @@ const AttendanceReport = () => {
           />
         </div>
 
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white"
+        >
+          <option>All</option>
+          <option>Present</option>
+          <option>Absent</option>
+          <option>Late</option>
+        </select>
+
         <button
           onClick={fetchLogs}
           disabled={loadingLogs}
-          className="px-6 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold shadow transition disabled:opacity-50"
+          className="px-6 py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold shadow transition"
         >
           {loadingLogs ? "Loading..." : "Filter"}
         </button>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
+          <p className="text-gray-400">Total Students</p>
+          <p className="text-2xl font-bold text-white">{totalStudents}</p>
+        </div>
+        <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
+          <p className="text-gray-400">Total Sessions</p>
+          <p className="text-2xl font-bold text-white">{totalSessions}</p>
+        </div>
+        <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
+          <p className="text-gray-400">Total Records</p>
+          <p className="text-2xl font-bold text-white">{totalRecords}</p>
+        </div>
+        <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
+          <p className="text-gray-400">Attendance Rate</p>
+          <p className="text-2xl font-bold text-green-400">
+            {attendanceRate}%
+          </p>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
+          <h3 className="text-lg font-semibold text-green-400 mb-2">
+            Status Distribution
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="name"
+                outerRadius={100}
+                label
+              >
+                {pieData.map((_, index) => (
+                  <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
+          <h3 className="text-lg font-semibold text-green-400 mb-2">
+            Per Student Breakdown
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={barData}>
+              <XAxis dataKey="name" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="Present" fill="#22c55e" />
+              <Bar dataKey="Absent" fill="#ef4444" />
+              <Bar dataKey="Late" fill="#facc15" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Table */}
@@ -141,34 +295,82 @@ const AttendanceReport = () => {
             <table className="min-w-full text-sm text-left text-gray-300">
               <thead className="bg-neutral-800 text-green-400">
                 <tr>
-                  <th className="px-4 py-3">Date</th>
-                  <th>Student ID</th>
-                  <th>Full Name</th>
-                  <th>Status</th>
+                  <th className="px-4 py-3">Student ID</th>
+                  <th>Name</th>
+                  <th>Present</th>
+                  <th>Absent</th>
+                  <th>Late</th>
+                  <th>Total</th>
+                  <th>Daily Logs</th>
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-neutral-700 hover:bg-neutral-800/50 transition"
-                  >
-                    <td className="px-4 py-3">{log.date}</td>
-                    <td>{log.student_id}</td>
-                    <td className="font-medium text-white">
-                      {`${log.first_name} ${log.last_name}`}
-                    </td>
-                    <td
-                      className={`${
-                        log.status === "Present"
-                          ? "text-green-400"
-                          : "text-red-400"
-                      } font-semibold`}
+                {logs
+                  .filter(
+                    (log) =>
+                      statusFilter === "All" ||
+                      log.statuses.some((s) => s.status === statusFilter)
+                  )
+                  .map((log, index) => (
+                    <tr
+                      key={index}
+                      className="border-b border-neutral-700 hover:bg-neutral-800/50 transition"
                     >
-                      {log.status}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-3">{log.student_id}</td>
+                      <td className="font-medium text-white">
+                        {`${log.first_name} ${log.last_name}`}
+                      </td>
+                      <td className="text-green-400 font-semibold">
+                        {log.present}
+                      </td>
+                      <td className="text-red-400 font-semibold">
+                        {log.absent}
+                      </td>
+                      <td className="text-yellow-400 font-semibold">
+                        {log.late}
+                      </td>
+                      <td className="text-white">
+                        {log.total_attendances}
+                      </td>
+                      <td>
+                        <button
+                          onClick={() =>
+                            setExpandedStudent(
+                              expandedStudent === log.student_id
+                                ? null
+                                : log.student_id
+                            )
+                          }
+                          className="text-sm text-green-400 hover:underline flex items-center gap-1"
+                        >
+                          <FaListUl /> View
+                        </button>
+                        {expandedStudent === log.student_id && (
+                          <div className="mt-2 p-2 bg-neutral-800 rounded border border-neutral-700 text-xs text-gray-300">
+                            <ul>
+                              {log.statuses.map((s, i) => (
+                                <li key={i}>
+                                  {s.date} –{" "}
+                                  <span
+                                    className={
+                                      s.status === "Present"
+                                        ? "text-green-400"
+                                        : s.status === "Absent"
+                                        ? "text-red-400"
+                                        : "text-yellow-400"
+                                    }
+                                  >
+                                    {s.status}
+                                  </span>{" "}
+                                  ({s.time})
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -185,7 +387,9 @@ const AttendanceReport = () => {
         </>
       ) : (
         <p className="text-gray-400 text-center mt-6">
-          {loadingLogs ? "Loading attendance logs..." : "No attendance records found."}
+          {loadingLogs
+            ? "Loading attendance logs..."
+            : "No attendance records found."}
         </p>
       )}
     </div>

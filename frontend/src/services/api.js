@@ -115,8 +115,11 @@ export const getAttendanceReportByClass = async (id, from, to) => {
     `/instructor/class/${id}/attendance-report?${params}`,
     { headers: { Authorization: `Bearer ${token}` } }
   );
-  return res.data;
+
+  // 🔹 Return records array directly
+  return res.data.records || [];
 };
+
 
 // ==============================
 // 🔹 Student Dashboard

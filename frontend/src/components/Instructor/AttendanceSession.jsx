@@ -9,41 +9,38 @@ const AttendanceSession = () => {
   const [recognizedStudents, setRecognizedStudents] = useState([]);
   const [activeClass, setActiveClass] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // track last class viewed so logs persist even after session ends
   const [lastClassId, setLastClassId] = useState(null);
+  const [attendanceDate, setAttendanceDate] = useState(null);
 
   useEffect(() => {
     let interval;
 
     const fetchData = async () => {
       try {
-        // 🔹 Step 1: Get active session
         const sessionRes = await getActiveAttendanceSession();
 
         if (sessionRes?.active && sessionRes.class) {
-          // session is running
           setActiveClass(sessionRes.class);
           setLastClassId(sessionRes.class.class_id);
 
-          // fetch live logs
           const logsRes = await getAttendanceLogs(sessionRes.class.class_id);
-          if (logsRes?.logs) {
+          if (logsRes?.logs?.length > 0) {
             const allStudents = logsRes.logs.flatMap((log) => log.students || []);
             setRecognizedStudents(allStudents);
+            setAttendanceDate(logsRes.logs[0]?.date || null);
           }
         } else if (lastClassId) {
-          // session ended → still fetch final logs using last class id
           setActiveClass(null);
           const logsRes = await getAttendanceLogs(lastClassId);
-          if (logsRes?.logs) {
+          if (logsRes?.logs?.length > 0) {
             const allStudents = logsRes.logs.flatMap((log) => log.students || []);
             setRecognizedStudents(allStudents);
+            setAttendanceDate(logsRes.logs[0]?.date || null);
           }
         } else {
-          // nothing to show yet
           setActiveClass(null);
           setRecognizedStudents([]);
+          setAttendanceDate(null);
         }
       } catch {
         toast.error("⚠ Failed to fetch attendance session.");
@@ -54,53 +51,77 @@ const AttendanceSession = () => {
 
     fetchData();
     interval = setInterval(fetchData, 3000);
-
     return () => clearInterval(interval);
   }, [lastClassId]);
 
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const options = { year: "numeric", month: "long", day: "numeric" };
+    return new Date(dateStr).toLocaleDateString("en-US", options);
+  };
+
   return (
     <div className="p-6 bg-neutral-900 text-white min-h-screen">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold text-green-400">Attendance Session</h2>
+      {/* Header Section */}
+      <div className="mb-6 flex flex-col gap-2">
+        <h2 className="text-3xl font-bold text-green-400 flex items-center gap-2">
+          📋 Attendance Session
+        </h2>
+
         {activeClass ? (
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-300 text-sm">
             Tracking attendance for{" "}
             <span className="text-green-300 font-semibold">
               {activeClass.subject_code} – {activeClass.subject_title}
             </span>
           </p>
         ) : lastClassId ? (
-          <p className="text-gray-400 text-sm mt-1 italic">
-            Session ended. Showing last attendance logs.
+          <p className="text-yellow-400 text-sm font-medium italic">
+            🛑 Session ended. Showing final attendance logs.
           </p>
         ) : (
-          <p className="text-gray-400 text-sm mt-1 italic">No active session.</p>
+          <p className="text-gray-400 text-sm italic">No active session.</p>
+        )}
+
+        {attendanceDate && (
+          <span className="inline-block bg-green-700/30 text-green-300 text-xs font-medium px-3 py-1 rounded-full mt-1 w-fit shadow">
+            {formatDate(attendanceDate)}
+          </span>
         )}
       </div>
 
-      {/* Card */}
-      <div className="bg-neutral-800 rounded-xl shadow-lg border border-neutral-700 p-6">
-        <h3 className="text-xl font-semibold text-green-300 mb-4">
-          Recognized Students
-        </h3>
+      {/* Recognized Students Card */}
+      <div className="bg-neutral-800 rounded-xl shadow-xl border border-neutral-700 p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold text-green-300">
+            Recognized Students
+          </h3>
+          <span className="text-sm text-gray-400">
+            Total:{" "}
+            <span className="text-white font-bold">
+              {recognizedStudents.length}
+            </span>
+          </span>
+        </div>
 
         {loading ? (
-          <p className="text-gray-400 italic">Loading attendance...</p>
+          <p className="text-gray-400 italic animate-pulse">
+            Loading attendance...
+          </p>
         ) : recognizedStudents.length === 0 ? (
-          <div className="text-center py-6 text-gray-400">
+          <div className="text-center py-6 text-gray-400 italic">
             No students recognized yet.
           </div>
         ) : (
-          <ul className="divide-y divide-neutral-700 max-h-[450px] overflow-y-auto">
+          <ul className="divide-y divide-neutral-700 max-h-[450px] overflow-y-auto custom-scroll">
             {recognizedStudents.map((s, idx) => (
               <li
                 key={s.student_id || idx}
-                className="flex items-center justify-between py-3 px-2 hover:bg-neutral-700/50 rounded-md transition"
+                className="flex items-center justify-between py-3 px-3 hover:bg-neutral-700/40 rounded-md transition"
               >
                 {/* Student Info */}
                 <div>
-                  <p className="font-medium">
+                  <p className="font-medium text-white">
                     {s.first_name} {s.last_name}
                   </p>
                   <p className="text-xs text-gray-400">ID: {s.student_id}</p>
@@ -109,17 +130,19 @@ const AttendanceSession = () => {
                 {/* Status + Time */}
                 <div className="flex items-center gap-3">
                   <span
-                    className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    className={`px-3 py-1 text-xs font-semibold rounded-full shadow ${
                       s.status === "Present"
                         ? "bg-green-600 text-white"
                         : s.status === "Late"
-                        ? "bg-yellow-500 text-black"
+                        ? "bg-yellow-400 text-black"
                         : "bg-red-600 text-white"
                     }`}
                   >
                     {s.status}
                   </span>
-                  <span className="text-sm text-gray-400">{s.time}</span>
+                  <span className="text-sm text-gray-300 font-mono">
+                    {s.time}
+                  </span>
                 </div>
               </li>
             ))}

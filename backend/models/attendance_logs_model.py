@@ -1,18 +1,17 @@
 from config.db_config import db
-from datetime import datetime
+from datetime import datetime, timedelta
 
 attendance_logs_collection = db["attendance_logs"]
 
 # -----------------------------
 # Helpers
 # -----------------------------
-def _today_str():
-    return datetime.now().strftime("%Y-%m-%d")
-
+def _today_date():
+    """Return today's date normalized to midnight (datetime)."""
+    return datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
 def _now_time_str():
     return datetime.now().strftime("%H:%M:%S")
-
 
 def _parse_class_start_time(class_start_time):
     """
@@ -25,44 +24,21 @@ def _parse_class_start_time(class_start_time):
     if isinstance(class_start_time, datetime):
         return class_start_time
 
-    try:
-        # Try parsing string times
-        return datetime.strptime(class_start_time, "%H:%M:%S")
-    except ValueError:
+    for fmt in ("%H:%M:%S", "%H:%M"):
         try:
-            return datetime.strptime(class_start_time, "%H:%M")
+            return datetime.strptime(class_start_time, fmt)
         except ValueError:
-            return None
+            continue
+    return None
 
 
 # ✅ Save/append attendance for a student under (class_id, date)
-def log_attendance(
-    class_data,
-    student_data,
-    status="Present",
-    class_start_time=None
-):
-    """
-    class_data = {
-        "class_id": str,
-        "subject_code": str,
-        "subject_title": str,
-        "instructor_id": str,
-        "instructor_first_name": str,
-        "instructor_last_name": str,
-        "course": str,
-        "section": str
-    }
-    student_data = {
-        "student_id": str,
-        "first_name": str,
-        "last_name": str
-    }
-    """
+def log_attendance(class_data, student_data, status="Present", class_start_time=None):
+    now = datetime.utcnow()
+    today_date = _today_date()   # ✅ store as datetime, not string
+    time_str = _now_time_str()
 
-    now = datetime.now()
-
-    # ---- compute status (Present/Late) with cutoff (>30 mins = no log) ----
+    # ---- compute status (Present/Late) ----
     parsed_start = _parse_class_start_time(class_start_time)
     if parsed_start:
         minutes_late = (now - parsed_start).total_seconds() / 60
@@ -72,11 +48,8 @@ def log_attendance(
             print("⛔ Student too late. Attendance window closed.")
             return None
 
-    date_str = _today_str()
-    time_str = _now_time_str()
-
-    # ---- upsert document for this class/date with metadata ----
-    base_filter = {"class_id": class_data["class_id"], "date": date_str}
+    # ---- upsert document for this class/date ----
+    base_filter = {"class_id": class_data["class_id"], "date": today_date}
     set_on_insert = {
         "class_id": class_data["class_id"],
         "subject_code": class_data.get("subject_code"),
@@ -86,7 +59,7 @@ def log_attendance(
         "instructor_last_name": class_data.get("instructor_last_name"),
         "course": class_data.get("course"),
         "section": class_data.get("section"),
-        "date": date_str,
+        "date": today_date,   # ✅ datetime
         "students": []
     }
 
@@ -96,7 +69,7 @@ def log_attendance(
         upsert=True
     )
 
-    # ---- first try to update existing student entry (if already present) ----
+    # ---- update existing student entry ----
     res_update = attendance_logs_collection.update_one(
         {**base_filter, "students.student_id": student_data["student_id"]},
         {
@@ -109,7 +82,7 @@ def log_attendance(
         }
     )
 
-    # ---- if not present yet, push as new student entry ----
+    # ---- if not yet present, push ----
     if res_update.modified_count == 0:
         attendance_logs_collection.update_one(
             base_filter,
@@ -129,7 +102,7 @@ def log_attendance(
     print(f"✅ {status} logged for {student_data['first_name']} {student_data['last_name']}")
     return {
         "class_id": class_data["class_id"],
-        "date": date_str,
+        "date": today_date.strftime("%Y-%m-%d"),  # ✅ safe for API
         "student_id": student_data["student_id"],
         "status": status,
         "time": time_str
@@ -137,17 +110,20 @@ def log_attendance(
 
 
 # ✅ Check if a student already has an entry today for a class
-def has_logged_attendance(student_id, class_id, date_str=None):
-    if not date_str:
-        date_str = _today_str()
+def has_logged_attendance(student_id, class_id, date_val=None):
+    if not date_val:
+        date_val = _today_date()
+    elif isinstance(date_val, str):
+        date_val = datetime.strptime(date_val, "%Y-%m-%d")
+
     return attendance_logs_collection.find_one({
         "class_id": class_id,
-        "date": date_str,
+        "date": date_val,
         "students.student_id": student_id
     }) is not None
 
 
-# ✅ Fetch all logs for a student (flattened per class-date with that student's status)
+# ✅ Fetch logs for a student (flattened)
 def get_attendance_logs_by_student(student_id):
     docs = attendance_logs_collection.find(
         {"students.student_id": student_id},
@@ -167,32 +143,45 @@ def get_attendance_logs_by_student(student_id):
                 "instructor_last_name": d.get("instructor_last_name"),
                 "course": d.get("course"),
                 "section": d.get("section"),
-                "date": d.get("date"),
-                "student": s  # { student_id, first_name, last_name, status, time }
+                "date": d.get("date").strftime("%Y-%m-%d"),  # ✅ always return string for API
+                "student": s
             })
     return results
 
 
-# ✅ Attendance Report by class ID and date range (returns one doc per date with students array)
+# ✅ Attendance Report by class ID and date range
 def get_attendance_logs_by_class_and_date(class_id, start_date, end_date):
-    return list(attendance_logs_collection.find(
-        {
-            "class_id": class_id,
-            "date": {"$gte": start_date, "$lte": end_date}
-        },
-        sort=[("date", 1)]
-    ))
+    start = datetime.strptime(start_date, "%Y-%m-%d") if start_date else None
+    end = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)) if end_date else None
+
+    query = {"class_id": class_id}
+    if start and end:
+        query["date"] = {"$gte": start, "$lt": end}
+
+    docs = attendance_logs_collection.find(query, sort=[("date", 1)])
+    results = []
+    for d in docs:
+        for s in d.get("students", []):
+            results.append({
+                "_id": str(d.get("_id")),
+                "class_id": d.get("class_id"),
+                "date": d.get("date").strftime("%Y-%m-%d"),
+                "student_id": s.get("student_id"),
+                "first_name": s.get("first_name"),
+                "last_name": s.get("last_name"),
+                "status": s.get("status"),
+                "time": s.get("time"),
+            })
+    return results
 
 
-# ✅ Bulk mark ABSENT for students not logged by cutoff
-def mark_absent_bulk(class_data, date_str, student_list):
-    """
-    student_list: [{student_id, first_name, last_name}, ...]
-    Marks 'Absent' only if the student has no entry yet for that class/date.
-    """
-    base_filter = {"class_id": class_data["class_id"], "date": date_str}
+# ✅ Bulk mark ABSENT
+def mark_absent_bulk(class_data, date_val, student_list):
+    if isinstance(date_val, str):
+        date_val = datetime.strptime(date_val, "%Y-%m-%d")
 
-    # ensure doc exists
+    base_filter = {"class_id": class_data["class_id"], "date": date_val}
+
     attendance_logs_collection.update_one(
         base_filter,
         {"$setOnInsert": {
@@ -204,16 +193,14 @@ def mark_absent_bulk(class_data, date_str, student_list):
             "instructor_last_name": class_data.get("instructor_last_name"),
             "course": class_data.get("course"),
             "section": class_data.get("section"),
-            "date": date_str,
+            "date": date_val,
             "students": []
         }},
         upsert=True
     )
 
     time_str = _now_time_str()
-
     for s in student_list:
-        # only add if not present
         attendance_logs_collection.update_one(
             {**base_filter, "students.student_id": {"$ne": s["student_id"]}},
             {"$push": {"students": {
@@ -226,12 +213,7 @@ def mark_absent_bulk(class_data, date_str, student_list):
         )
 
 
-# ✅ Maintenance: create useful indexes
+# ✅ Indexes
 def ensure_indexes():
-    attendance_logs_collection.create_index(
-        [("class_id", 1), ("date", 1)],
-        unique=False
-    )
-    attendance_logs_collection.create_index(
-        [("students.student_id", 1), ("date", 1)]
-    )
+    attendance_logs_collection.create_index([("class_id", 1), ("date", 1)], unique=False)
+    attendance_logs_collection.create_index([("students.student_id", 1), ("date", 1)])

@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required
 import bcrypt
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from config.db_config import db
 from models.attendance_logs_model import get_attendance_logs_by_class_and_date
 from models.instructor_model import (
@@ -141,20 +141,42 @@ def attendance_report(class_id):
     start_date = request.args.get("from")
     end_date = request.args.get("to")
 
-    try:
-        if start_date and end_date:
-            start = datetime.strptime(start_date, "%Y-%m-%d")
-            end = datetime.strptime(end_date, "%Y-%m-%d")
-        else:
-            start = datetime.min
-            end = datetime.max
-    except:
-        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD."}), 400
+    real_class_id = str(class_id)
+    query = {"class_id": real_class_id}
 
-    logs = get_attendance_logs_by_class_and_date(
-        class_id, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
-    )
-    return jsonify(logs), 200
+    # 🔹 Add date filter only if provided
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            query["date"] = {"$gte": start, "$lt": end}
+        except Exception as e:
+            return jsonify({
+                "error": f"Invalid date format. Use YYYY-MM-DD. ({e})"
+            }), 400
+
+    print("📌 Attendance Query:", query)
+    logs = list(attendance_collection.find(query))
+    print(f"📌 Found {len(logs)} logs")
+
+    results = []
+    for log in logs:
+        date_str = log.get("date").strftime("%Y-%m-%d")
+        for s in log.get("students", []):
+            results.append({
+                "date": date_str,
+                "student_id": s.get("student_id"),
+                "first_name": s.get("first_name"),
+                "last_name": s.get("last_name"),
+                "status": s.get("status"),
+                "time": s.get("time"),
+            })
+
+    return jsonify({
+        "class_id": real_class_id,
+        "count": len(results),
+        "records": results
+    }), 200
 
 
 # -------------------------------------------------
@@ -178,21 +200,26 @@ def list_all_class_assignments():
 @jwt_required()
 def instructor_overview(instructor_id):
     try:
-        # Classes assigned
         classes = list(classes_collection.find({"instructor_id": instructor_id}))
 
         total_classes = len(classes)
         total_students = sum(len(cls.get("students", [])) for cls in classes)
         active_sessions = sum(1 for cls in classes if cls.get("is_attendance_active", False))
 
-        # Attendance rate (% Present among all student logs)
-        logs = list(attendance_collection.find({"class_id": {"$in": [str(cls["_id"]) for cls in classes]}}))
-        total_records, present_count = 0, 0
-        for log in logs:
-            for student in log.get("students", []):
-                total_records += 1
-                if student.get("status") == "Present":
-                    present_count += 1
+        # Attendance rate
+        class_ids = [str(cls["_id"]) for cls in classes]
+        pipeline = [
+            {"$match": {"class_id": {"$in": class_ids}}},
+            {"$unwind": "$students"},
+            {"$group": {
+                "_id": None,
+                "total_records": {"$sum": 1},
+                "present_count": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}}
+            }}
+        ]
+        agg = list(attendance_collection.aggregate(pipeline))
+        total_records = agg[0]["total_records"] if agg else 0
+        present_count = agg[0]["present_count"] if agg else 0
         attendance_rate = round((present_count / total_records) * 100, 2) if total_records else 0
 
         return jsonify({
@@ -214,7 +241,7 @@ def instructor_attendance_trend(instructor_id):
             {"$match": {"instructor_id": instructor_id}},
             {"$unwind": "$students"},
             {"$group": {
-                "_id": {"week": {"$isoWeek": {"$toDate": "$date"}}},
+                "_id": {"week": {"$dateTrunc": {"date": "$date", "unit": "week"}}},
                 "rate": {"$avg": {"$cond": [{"$eq": ["$students.status", "Present"]}, 100, 0]}}
             }},
             {"$sort": {"_id.week": 1}}

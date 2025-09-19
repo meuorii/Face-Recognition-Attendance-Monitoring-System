@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from bson import ObjectId
 from config.db_config import db
 from models.attendance_model import has_logged_attendance
@@ -9,11 +9,16 @@ attendance_active = False
 current_class_id = None
 
 
-def _today_str_utc():
-    return datetime.datetime.utcnow().date().isoformat()
+# -----------------------------
+# Helpers
+# -----------------------------
+def _today_date_utc():
+    """Return today's date normalized to midnight (UTC)."""
+    return datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def refresh_session_state_from_db():
+    """Sync local state with DB."""
     global attendance_active, current_class_id
     active = classes_collection.find_one({"is_attendance_active": True}, {"_id": 1})
     if active:
@@ -25,6 +30,7 @@ def refresh_session_state_from_db():
 
 
 def start_attendance_session(class_id, instructor_id=None):
+    """Mark class as having an active attendance session."""
     global attendance_active, current_class_id
 
     active = classes_collection.find_one({"is_attendance_active": True})
@@ -36,7 +42,7 @@ def start_attendance_session(class_id, instructor_id=None):
         {"_id": ObjectId(class_id)},
         {"$set": {
             "is_attendance_active": True,
-            "attendance_start_time": datetime.datetime.utcnow(),
+            "attendance_start_time": datetime.utcnow(),
             "attendance_end_time": None,
             "activated_by": instructor_id or "system"
         }}
@@ -55,6 +61,7 @@ def start_attendance_session(class_id, instructor_id=None):
 
 
 def stop_attendance_session(class_id=None):
+    """Stop an active attendance session."""
     global attendance_active, current_class_id
 
     if not attendance_active:
@@ -72,7 +79,7 @@ def stop_attendance_session(class_id=None):
         {"_id": ObjectId(current_class_id), "is_attendance_active": True},
         {"$set": {
             "is_attendance_active": False,
-            "attendance_end_time": datetime.datetime.utcnow()
+            "attendance_end_time": datetime.utcnow()
         }}
     )
 
@@ -86,7 +93,11 @@ def stop_attendance_session(class_id=None):
     return True
 
 
-def already_logged_today(student_id, class_id, date_str=None):
-    if date_str is None:
-        date_str = _today_str_utc()
-    return has_logged_attendance(student_id, class_id, date_str)
+def already_logged_today(student_id, class_id, date_val=None):
+    """
+    Check if a student already logged attendance today.
+    date_val: optional datetime or string (YYYY-MM-DD).
+    """
+    if date_val is None:
+        date_val = _today_date_utc()
+    return has_logged_attendance(student_id, class_id, date_val)

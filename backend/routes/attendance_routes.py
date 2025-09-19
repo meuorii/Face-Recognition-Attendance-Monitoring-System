@@ -14,7 +14,7 @@ classes_collection = db["classes"]
 # 🔄 Attendance model helpers (class-based)
 from models.attendance_model import (
     log_attendance as log_attendance_model,
-    has_logged_attendance,   # ✅ fixed name
+    has_logged_attendance,
     get_attendance_logs_by_class_and_date,
     get_attendance_by_class,
     mark_absent_bulk,
@@ -26,8 +26,19 @@ attendance_bp = Blueprint("attendance", __name__)
 # -----------------------------
 # Utilities
 # -----------------------------
-def _today_str():
-    return datetime.now().strftime("%Y-%m-%d")
+def _today_date():
+    """Return today's date normalized to midnight (datetime)."""
+    return datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _parse_date(date_str):
+    """Convert YYYY-MM-DD string to datetime, fallback to today."""
+    if not date_str:
+        return _today_date()
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return _today_date()
 
 
 def _class_to_payload(cls):
@@ -110,26 +121,7 @@ def get_active_session():
     try:
         cls = classes_collection.find_one({"is_attendance_active": True})
         if cls:
-            class_payload = {
-                "class_id": str(cls["_id"]),
-                "subject_code": cls.get("subject_code"),
-                "subject_title": cls.get("subject_title"),
-                "instructor_id": cls.get("instructor_id"),
-                "instructor_first_name": cls.get("instructor_first_name"),
-                "instructor_last_name": cls.get("instructor_last_name"),
-                "course": cls.get("course"),
-                "section": cls.get("section"),
-                "is_attendance_active": cls.get("is_attendance_active", False),
-                "attendance_start_time": cls.get("attendance_start_time"),
-                "attendance_end_time": cls.get("attendance_end_time"),
-                "students": cls.get("students", []),
-            }
-
-            return jsonify({
-                "active": True,
-                "class": class_payload
-            }), 200
-
+            return jsonify({"active": True, "class": _class_to_payload(cls)}), 200
         return jsonify({"active": False}), 200
 
     except Exception:
@@ -151,14 +143,14 @@ def log_attendance():
         class_id = data["class_id"]
         status = data["status"]
         student_data = data["student"]
-        date_str = data.get("date") or _today_str()
+        date_val = _parse_date(data.get("date"))
 
         # Validate student fields
         for f in ["student_id", "first_name", "last_name"]:
             if f not in student_data:
                 return jsonify({"error": f"Missing student.{f}"}), 400
 
-        # ✅ Always fetch class info from DB (ensures subject_code/title not null)
+        # ✅ Always fetch class info from DB
         cls = classes_collection.find_one({"_id": ObjectId(class_id)})
         if not cls:
             return jsonify({"error": "Class not found"}), 404
@@ -178,14 +170,14 @@ def log_attendance():
             class_data=class_data,
             student_data=student_data,
             status=status,
-            date_str=date_str
+            date_val=date_val
         )
 
         return jsonify({
             "success": True,
             "message": "Attendance recorded",
             "class_id": class_data["class_id"],
-            "date": date_str,
+            "date": date_val.strftime("%Y-%m-%d"),
             "student_id": student_data["student_id"],
             "status": status
         }), 200
@@ -202,12 +194,12 @@ def has_logged():
     try:
         student_id = request.args.get("student_id")
         class_id = request.args.get("class_id")
-        date_str = request.args.get("date") or _today_str()
+        date_val = _parse_date(request.args.get("date"))
 
         if not student_id or not class_id:
             return jsonify({"error": "Missing student_id or class_id"}), 400
 
-        exists = has_logged_attendance(student_id, class_id, date_str)  # ✅ fixed name
+        exists = has_logged_attendance(student_id, class_id, date_val)
         return jsonify({"exists": bool(exists)}), 200
 
     except Exception:
@@ -228,14 +220,13 @@ def get_logs(class_id):
         else:
             docs = get_attendance_by_class(class_id)
 
-        def serialize(d):
+        for d in docs:
             d["_id"] = str(d["_id"])
-            return d
 
         return jsonify({
             "success": True,
             "class_id": class_id,
-            "logs": [serialize(d) for d in docs]
+            "logs": docs
         }), 200
 
     except Exception:
@@ -255,7 +246,7 @@ def mark_absent():
         if not class_id or not isinstance(students, list):
             return jsonify({"error": "Missing class_id or students[]"}), 400
 
-        date_str = data.get("date") or _today_str()
+        date_val = _parse_date(data.get("date"))
 
         # ✅ Always fetch class info from DB
         cls = classes_collection.find_one({"_id": ObjectId(class_id)})
@@ -273,13 +264,13 @@ def mark_absent():
             "section": cls.get("section"),
         }
 
-        mark_absent_bulk(class_data, date_str, students)
+        mark_absent_bulk(class_data, date_val, students)
 
         return jsonify({
             "success": True,
             "message": "Absent marked (where missing)",
             "class_id": class_id,
-            "date": date_str,
+            "date": date_val.strftime("%Y-%m-%d"),
             "count": len(students)
         }), 200
 

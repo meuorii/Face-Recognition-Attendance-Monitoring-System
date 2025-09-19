@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 from torchvision import models
 from PIL import Image
 from collections import OrderedDict
+import warnings
 
 # =========================
 # Config (edit if needed)
@@ -15,6 +16,9 @@ DEFAULT_MODEL_PATH = "models/anti_spoof/best_model.pth"  # your path
 DEFAULT_BACKBONE   = "resnet50"   # "resnet18" | "resnet34" | "resnet50"
 IMG_SIZE           = 256          # match your training
 PRINT_DEBUG        = True         # set False to silence prints
+
+# (optional) silence PyTorch FutureWarnings globally
+warnings.filterwarnings("ignore", category=FutureWarning, module="torch.serialization")
 
 # =========================
 # Device
@@ -56,7 +60,6 @@ def _infer_head(state: dict) -> tuple[int, str]:
     Infer classifier output dimension and head type from weights.
     Returns (out_dim, head_type), where head_type in {"sigmoid","softmax"}.
     """
-    # Try common head keys
     candidates = [
         "fc.weight", "classifier.weight", "head.weight",
         "last_linear.weight", "final.weight"
@@ -69,14 +72,12 @@ def _infer_head(state: dict) -> tuple[int, str]:
                     out_dim = int(w.shape[0])
                     return out_dim, ("sigmoid" if out_dim == 1 else "softmax")
 
-    # Fallback: any small 2D weight with matching bias
     for k, v in state.items():
         if getattr(v, "ndim", 0) == 2 and v.shape[0] in (1, 2):
             if k.endswith(".weight") and (k.replace(".weight", ".bias") in state):
                 out_dim = int(v.shape[0])
                 return out_dim, ("sigmoid" if out_dim == 1 else "softmax")
 
-    # Final fallback: assume BCE (1-logit)
     return 1, "sigmoid"
 
 # =========================
@@ -94,14 +95,18 @@ def load_anti_spoof_model(
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Anti-spoof checkpoint not found: {model_path}")
 
-    ckpt = torch.load(model_path, map_location=device)
-    state = ckpt.get("model_state", ckpt)  # accept raw state_dict or with key "model_state"
+    # ✅ Future-proof torch.load
+    try:
+        ckpt = torch.load(model_path, map_location=device, weights_only=True)
+    except TypeError:
+        ckpt = torch.load(model_path, map_location=device)
+
+    state = ckpt.get("model_state", ckpt)
     state = _strip_prefix(state)
 
     out_dim, head_type = _infer_head(state)
     model = _build_resnet(backbone, out_dim=out_dim).to(device)
 
-    # Non-strict to tolerate head name differences
     missing, unexpected = model.load_state_dict(state, strict=False)
     if PRINT_DEBUG and (missing or unexpected):
         print("[AntiSpoof] load_state_dict non-strict",
@@ -109,7 +114,6 @@ def load_anti_spoof_model(
 
     model.eval()
 
-    # Preprocessing must match training eval pipeline
     tf = transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.ToTensor(),
@@ -120,13 +124,12 @@ def load_anti_spoof_model(
     if PRINT_DEBUG:
         print(f"✅ Loaded anti-spoof model: {backbone} | head={head_type} | out_dim={out_dim} | from {model_path}")
 
-    # Warm-up to avoid first-run lag
     with torch.no_grad():
         _ = model(torch.randn(1, 3, img_size, img_size, device=device))
 
     return model, tf, head_type
 
-# Lazy globals (allow re-imports without double-loading)
+# Lazy globals
 _anti_spoof_model: nn.Module | None = None
 _preprocess_tf: transforms.Compose | None = None
 _head_type: str | None = None
@@ -142,9 +145,6 @@ def _ensure_loaded():
 # Preprocess
 # =========================
 def preprocess_img(img_bgr: np.ndarray) -> torch.Tensor:
-    """
-    BGR (OpenCV) -> RGB -> PIL -> tensor with resize+normalize.
-    """
     _ensure_loaded()
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     pil = Image.fromarray(img_rgb)
@@ -155,16 +155,11 @@ def preprocess_img(img_bgr: np.ndarray) -> torch.Tensor:
 # Inference
 # =========================
 def _forward_prob_real(x: torch.Tensor) -> float:
-    """
-    Returns prob_real in [0,1] using the detected head.
-    """
     with torch.no_grad():
         logits = _anti_spoof_model(x)
         if _head_type == "sigmoid":
-            # 1 logit => sigmoid gives P(REAL)
             return float(torch.sigmoid(logits).item())
         else:
-            # 2 logits => softmax([spoof, real])
             probs = torch.softmax(logits, dim=1)[0].detach().cpu().numpy()
             return float(probs[1])
 
@@ -172,22 +167,16 @@ def _forward_prob_real(x: torch.Tensor) -> float:
 # Heuristics (optional)
 # =========================
 def _heuristics_ok(img_bgr: np.ndarray, prob_real: float, margin_min: float = 0.30) -> bool:
-    """
-    Lightweight heuristics to reduce obvious replay/print attacks.
-    You can turn this off from the public API if you want.
-    """
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    lap_var = cv2.Laplacian(gray, cv2.CV_64F).var()        # sharpness
+    lap_var = cv2.Laplacian(gray, cv2.CV_64F).var()
     hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
     sat = float(hsv[:, :, 1].mean())
     mean_bgr = np.mean(img_bgr, axis=(0, 1))
 
-    # Simple expectations:
-    texture_ok     = lap_var >= 140.0     # too blurry => likely screen
-    saturation_ok  = sat < 150.0          # oversaturated => screen/glare
+    texture_ok     = lap_var >= 140.0
+    saturation_ok  = sat < 150.0
     color_reasonable = not (mean_bgr[1] > 180 and mean_bgr[2] > 180)
 
-    # If head is softmax we can approximate margin by (2*prob_real - 1)
     margin = abs(2.0 * prob_real - 1.0)
     margin_ok = margin >= margin_min
 
@@ -202,27 +191,14 @@ def _heuristics_ok(img_bgr: np.ndarray, prob_real: float, margin_min: float = 0.
 # =========================
 def check_real_or_spoof(
     img_bgr: np.ndarray,
-    threshold: float = 0.98,          # tune from val ROC
+    threshold: float = 0.98,
     use_heuristics: bool = True,
-    double_check: bool = False        # ✅ added back for back-compat
+    double_check: bool = False
 ) -> tuple[bool, float, dict]:
-    """
-    Decide if a face crop is REAL or SPOOF.
-
-    Args:
-        img_bgr: BGR (OpenCV) image (preferably a tight face crop)
-        threshold: decision threshold for P(real)
-        use_heuristics: apply light rules (blur/saturation/margin)
-        double_check: run the model twice and average P(real)
-
-    Returns:
-      (is_real, confidence, {"real": p_real, "spoof": p_spoof})
-    """
     try:
         _ensure_loaded()
         x = preprocess_img(img_bgr)
 
-        # one or two forward passes (to reduce jitter)
         p1 = _forward_prob_real(x)
         if double_check:
             p2 = _forward_prob_real(x)
@@ -235,9 +211,9 @@ def check_real_or_spoof(
         is_real = (prob_real >= threshold)
         if use_heuristics:
             if prob_real >= (threshold + 0.15):
-                pass  # keep is_real = True
+                pass
             else:
-                 is_real = is_real and _heuristics_ok(img_bgr, prob_real)
+                is_real = is_real and _heuristics_ok(img_bgr, prob_real)
 
         confidence = prob_real if is_real else prob_spoof
 

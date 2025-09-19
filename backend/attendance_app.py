@@ -7,6 +7,7 @@ import torch
 from scipy.spatial.distance import cosine
 from collections import defaultdict
 from insightface.app import FaceAnalysis
+from datetime import datetime
 
 from utils.anti_spoofing import check_real_or_spoof
 from models.face_db_model import load_registered_faces, get_student_by_id
@@ -57,14 +58,11 @@ def load_embeddings_for_class(class_meta: dict):
     db = {}
     for student in registered_faces:
         sid = student.get("student_id")
-        print("🔎 Checking student in DB:", sid)
         if not sid or sid not in allowed_ids:
-            print(f"⏭️ Skipped {sid}, not in class.")
             continue
 
         embeddings = student.get("embeddings", {})
         if not embeddings:
-            print(f"⚠️ No embeddings for {sid}")
             continue
 
         db[sid] = []
@@ -101,8 +99,6 @@ def find_matching_user(live_embedding, db, threshold=MATCH_THRESH):
         return None, None
 
     scores.sort(key=lambda x: x[1])
-    print("🔍 Top candidates:", [(sid, round(score, 4)) for sid, score in scores[:3]])
-
     if scores[0][1] < threshold:
         return scores[0]
     return None, None
@@ -120,7 +116,10 @@ def set_backend_inactive(class_id: str) -> bool:
         print("ℹ️ STOP request failed:", e)
     return False
 
-def post_attendance_log(class_meta: dict, student: dict, status: str = "Present", date_str: str = None):
+
+def post_attendance_log(class_meta: dict, student: dict, status: str = "Present"):
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")  # ✅ ensure backend expects YYYY-MM-DD
+
     payload = {
         "class_id": class_meta.get("class_id"),
         "class_code": class_meta.get("class_code"),
@@ -135,14 +134,14 @@ def post_attendance_log(class_meta: dict, student: dict, status: str = "Present"
             "first_name": student.get("first_name", ""),
             "last_name": student.get("last_name", "")
         },
-        "status": status
+        "status": status,
+        "date": today_str
     }
-    if date_str:
-        payload["date"] = date_str
 
     resp = requests.post(LOG_URL, json=payload, timeout=5)
     resp.raise_for_status()
     return resp.json()
+
 
 def read_active_class():
     r = requests.get(ACTIVE_URL, timeout=5).json()
@@ -192,9 +191,11 @@ def _expand_and_clip_bbox(bbox, w, h, pad_ratio=0.25):
     nx2, ny2 = int(round(cx + side / 2)), int(round(cy + side / 2))
     return max(0, nx1), max(0, ny1), min(w - 1, nx2), min(h - 1, ny2)
 
+
 def _draw_small_text(img, text, org, color=(255,255,255), scale=0.55, thickness=1):
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0,0,0), thickness+2, cv2.LINE_AA)
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thickness, cv2.LINE_AA)
+
 
 def _format_mmss(elapsed_sec: float) -> str:
     m, s = divmod(int(elapsed_sec), 60)
