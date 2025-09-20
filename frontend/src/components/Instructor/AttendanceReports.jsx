@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import {
   getClassesByInstructor,
   getAttendanceReportByClass,
+  getAttendanceReportAll,
 } from "../../services/api";
 import { toast } from "react-toastify";
 import {
@@ -26,6 +27,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useModal } from "./ModalManager"; // ✅ use global modal context
+import DailyLogsModal from "./DailyLogsModal";
 
 const COLORS = ["#22c55e", "#ef4444", "#facc15"]; // green, red, yellow
 
@@ -38,14 +41,16 @@ const AttendanceReport = () => {
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All");
-  const [expandedStudent, setExpandedStudent] = useState(null);
 
   const instructor = JSON.parse(localStorage.getItem("userData"));
   const token = localStorage.getItem("token");
+  const { openModal } = useModal(); // ✅ use modal manager
 
+  // Load classes + all logs on mount
   useEffect(() => {
     if (instructor?.instructor_id && token) {
       fetchClasses();
+      fetchLogs(); // load all logs initially
     } else {
       toast.error("No instructor data found. Please log in again.");
     }
@@ -66,54 +71,61 @@ const AttendanceReport = () => {
   };
 
   const fetchLogs = async () => {
-  if (!selectedClass) return toast.warning("Please select a class.");
+    const from = startDate ? startDate.toISOString().split("T")[0] : null;
+    const to = endDate ? endDate.toISOString().split("T")[0] : null;
 
-  const from = startDate ? startDate.toISOString().split("T")[0] : null;
-  const to = endDate ? endDate.toISOString().split("T")[0] : null;
-
-  setLoadingLogs(true);
-  try {
-    const data = await getAttendanceReportByClass(selectedClass, from, to);
-    console.log("📡 Attendance API Response:", data);
-
-    // Group logs by student_id
-    const grouped = {};
-    data.forEach((log) => {
-      const sid = log.student_id;
-      if (!sid) return;
-
-      if (!grouped[sid]) {
-        grouped[sid] = {
-          student_id: log.student_id,
-          first_name: log.first_name,
-          last_name: log.last_name,
-          total_attendances: 0,
-          present: 0,
-          absent: 0,
-          late: 0,
-          statuses: [],
-        };
+    setLoadingLogs(true);
+    try {
+      let data = [];
+      if (selectedClass) {
+        data = await getAttendanceReportByClass(selectedClass, from, to);
+      } else {
+        data = await getAttendanceReportAll(from, to);
       }
-      grouped[sid].total_attendances++;
-      if (log.status === "Present") grouped[sid].present++;
-      if (log.status === "Absent") grouped[sid].absent++;
-      if (log.status === "Late") grouped[sid].late++;
-      grouped[sid].statuses.push({
-        date: log.date,
-        status: log.status,
-        time: log.time,
+
+      // Group logs by student_id
+      const grouped = {};
+      data.forEach((log) => {
+        const sid = log.student_id;
+        if (!sid) return;
+
+        if (!grouped[sid]) {
+          grouped[sid] = {
+            student_id: log.student_id,
+            first_name: log.first_name,
+            last_name: log.last_name,
+            total_attendances: 0,
+            present: 0,
+            absent: 0,
+            late: 0,
+            statuses: [],
+          };
+        }
+        grouped[sid].total_attendances++;
+        if (log.status === "Present") grouped[sid].present++;
+        if (log.status === "Absent") grouped[sid].absent++;
+        if (log.status === "Late") grouped[sid].late++;
+        grouped[sid].statuses.push({
+          date: log.date,
+          status: log.status,
+          time: log.time,
+        });
       });
-    });
 
-    setLogs(Object.values(grouped));
-  } catch (err) {
-    console.error("❌ Failed to fetch attendance logs:", err);
-    toast.error("Failed to fetch attendance logs.");
-  } finally {
-    setLoadingLogs(false);
-  }
-};
+      setLogs(Object.values(grouped));
+    } catch (err) {
+      console.error("❌ Failed to fetch attendance logs:", err);
+      toast.error("Failed to fetch attendance logs.");
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
 
+  // Auto-refresh logs when class changes
+  useEffect(() => {
+    fetchLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass]);
 
   const exportToPDF = () => {
     const doc = new jsPDF();
@@ -133,7 +145,7 @@ const AttendanceReport = () => {
     doc.save("attendance_report.pdf");
   };
 
-  // ✅ Summary stats
+  // Summary stats
   const totalStudents = logs.length;
   const totalSessions = logs.reduce(
     (sum, log) => Math.max(sum, log.statuses.length),
@@ -148,7 +160,7 @@ const AttendanceReport = () => {
     ? ((totalPresent / totalRecords) * 100).toFixed(2)
     : 0;
 
-  // ✅ Chart data
+  // Chart data
   const pieData = [
     { name: "Present", value: logs.reduce((sum, log) => sum + log.present, 0) },
     { name: "Absent", value: logs.reduce((sum, log) => sum + log.absent, 0) },
@@ -177,7 +189,7 @@ const AttendanceReport = () => {
           disabled={loadingClasses}
           className="flex-1 px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white"
         >
-          <option value="">-- Select Class --</option>
+          <option value="">-- All Classes --</option>
           {classes.map((c) => (
             <option key={c._id} value={c.class_id || c._id}>
               {c.subject_code} – {c.subject_title}
@@ -185,6 +197,7 @@ const AttendanceReport = () => {
           ))}
         </select>
 
+        {/* Start Date */}
         <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
           <FaCalendarAlt className="text-green-400" />
           <DatePicker
@@ -195,6 +208,7 @@ const AttendanceReport = () => {
           />
         </div>
 
+        {/* End Date */}
         <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2">
           <FaCalendarAlt className="text-green-400" />
           <DatePicker
@@ -241,9 +255,7 @@ const AttendanceReport = () => {
         </div>
         <div className="bg-neutral-800 p-4 rounded-lg border border-neutral-700">
           <p className="text-gray-400">Attendance Rate</p>
-          <p className="text-2xl font-bold text-green-400">
-            {attendanceRate}%
-          </p>
+          <p className="text-2xl font-bold text-green-400">{attendanceRate}%</p>
         </div>
       </div>
 
@@ -329,45 +341,18 @@ const AttendanceReport = () => {
                       <td className="text-yellow-400 font-semibold">
                         {log.late}
                       </td>
-                      <td className="text-white">
-                        {log.total_attendances}
-                      </td>
+                      <td className="text-white">{log.total_attendances}</td>
                       <td>
                         <button
                           onClick={() =>
-                            setExpandedStudent(
-                              expandedStudent === log.student_id
-                                ? null
-                                : log.student_id
+                            openModal(
+                              <DailyLogsModal student={log} />
                             )
                           }
                           className="text-sm text-green-400 hover:underline flex items-center gap-1"
                         >
                           <FaListUl /> View
                         </button>
-                        {expandedStudent === log.student_id && (
-                          <div className="mt-2 p-2 bg-neutral-800 rounded border border-neutral-700 text-xs text-gray-300">
-                            <ul>
-                              {log.statuses.map((s, i) => (
-                                <li key={i}>
-                                  {s.date} –{" "}
-                                  <span
-                                    className={
-                                      s.status === "Present"
-                                        ? "text-green-400"
-                                        : s.status === "Absent"
-                                        ? "text-red-400"
-                                        : "text-yellow-400"
-                                    }
-                                  >
-                                    {s.status}
-                                  </span>{" "}
-                                  ({s.time})
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))}

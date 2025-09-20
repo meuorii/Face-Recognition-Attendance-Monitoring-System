@@ -144,16 +144,13 @@ def attendance_report(class_id):
     real_class_id = str(class_id)
     query = {"class_id": real_class_id}
 
-    # 🔹 Add date filter only if provided
     if start_date and end_date:
         try:
-            start = datetime.strptime(start_date, "%Y-%m-%d")
+            start = datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=1)
             end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-            query["date"] = {"$gte": start, "$lt": end}
+            query["date"] = {"$gte": start, "$lte": end}  # ✅ inclusive of end date
         except Exception as e:
-            return jsonify({
-                "error": f"Invalid date format. Use YYYY-MM-DD. ({e})"
-            }), 400
+            return jsonify({"error": f"Invalid date format. Use YYYY-MM-DD. ({e})"}), 400
 
     print("📌 Attendance Query:", query)
     logs = list(attendance_collection.find(query))
@@ -161,7 +158,8 @@ def attendance_report(class_id):
 
     results = []
     for log in logs:
-        date_str = log.get("date").strftime("%Y-%m-%d")
+        date_val = log.get("date")
+        date_str = date_val.strftime("%Y-%m-%d") if isinstance(date_val, datetime) else str(date_val)
         for s in log.get("students", []):
             results.append({
                 "date": date_str,
@@ -178,6 +176,35 @@ def attendance_report(class_id):
         "records": results
     }), 200
 
+@instructor_bp.route("/attendance-report/all", methods=["GET"])
+@jwt_required()
+def attendance_report_all():
+    start_date = request.args.get("from")
+    end_date = request.args.get("to")
+
+    query = {}
+    if start_date and end_date:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+        query["date"] = {"$gte": start, "$lt": end}
+
+    logs = list(attendance_collection.find(query))
+    results = []
+    for log in logs:
+        date_str = log.get("date").strftime("%Y-%m-%d")
+        for s in log.get("students", []):
+            results.append({
+                "class_id": log.get("class_id"),
+                "subject_code": log.get("subject_code"),
+                "subject_title": log.get("subject_title"),
+                "date": date_str,
+                "student_id": s.get("student_id"),
+                "first_name": s.get("first_name"),
+                "last_name": s.get("last_name"),
+                "status": s.get("status"),
+                "time": s.get("time"),
+            })
+    return jsonify(results), 200
 
 # -------------------------------------------------
 # 🔹 Test: Show All Classes

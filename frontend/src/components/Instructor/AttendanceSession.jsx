@@ -10,7 +10,6 @@ const AttendanceSession = () => {
   const [activeClass, setActiveClass] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastClassId, setLastClassId] = useState(null);
-  const [attendanceDate, setAttendanceDate] = useState(null);
 
   useEffect(() => {
     let interval;
@@ -19,28 +18,54 @@ const AttendanceSession = () => {
       try {
         const sessionRes = await getActiveAttendanceSession();
 
+        // get today's date in YYYY-MM-DD format
+        const today = new Date().toISOString().split("T")[0];
+
         if (sessionRes?.active && sessionRes.class) {
           setActiveClass(sessionRes.class);
           setLastClassId(sessionRes.class.class_id);
 
           const logsRes = await getAttendanceLogs(sessionRes.class.class_id);
           if (logsRes?.logs?.length > 0) {
-            const allStudents = logsRes.logs.flatMap((log) => log.students || []);
+            // filter only today's logs
+            const todayLogs = logsRes.logs.filter(
+              (log) => log.date && log.date.startsWith(today)
+            );
+
+            const allStudents = todayLogs.flatMap((log) =>
+              (log.students || []).map((s) => ({
+                ...s,
+                logDate: log.date,
+              }))
+            );
+
             setRecognizedStudents(allStudents);
-            setAttendanceDate(logsRes.logs[0]?.date || null);
+          } else {
+            setRecognizedStudents([]);
           }
         } else if (lastClassId) {
+          // session ended, still fetch today's logs for that class
           setActiveClass(null);
           const logsRes = await getAttendanceLogs(lastClassId);
           if (logsRes?.logs?.length > 0) {
-            const allStudents = logsRes.logs.flatMap((log) => log.students || []);
+            const todayLogs = logsRes.logs.filter(
+              (log) => log.date && log.date.startsWith(today)
+            );
+
+            const allStudents = todayLogs.flatMap((log) =>
+              (log.students || []).map((s) => ({
+                ...s,
+                logDate: log.date,
+              }))
+            );
+
             setRecognizedStudents(allStudents);
-            setAttendanceDate(logsRes.logs[0]?.date || null);
+          } else {
+            setRecognizedStudents([]);
           }
         } else {
           setActiveClass(null);
           setRecognizedStudents([]);
-          setAttendanceDate(null);
         }
       } catch {
         toast.error("⚠ Failed to fetch attendance session.");
@@ -77,17 +102,16 @@ const AttendanceSession = () => {
           </p>
         ) : lastClassId ? (
           <p className="text-yellow-400 text-sm font-medium italic">
-            🛑 Session ended. Showing final attendance logs.
+            🛑 Session ended. Showing today&apos;s final attendance logs.
           </p>
         ) : (
           <p className="text-gray-400 text-sm italic">No active session.</p>
         )}
 
-        {attendanceDate && (
-          <span className="inline-block bg-green-700/30 text-green-300 text-xs font-medium px-3 py-1 rounded-full mt-1 w-fit shadow">
-            {formatDate(attendanceDate)}
-          </span>
-        )}
+        {/* Always show today's date */}
+        <span className="inline-block bg-green-700/30 text-green-300 text-xs font-medium px-3 py-1 rounded-full mt-1 w-fit shadow">
+          {formatDate(new Date().toISOString())}
+        </span>
       </div>
 
       {/* Recognized Students Card */}
@@ -110,13 +134,13 @@ const AttendanceSession = () => {
           </p>
         ) : recognizedStudents.length === 0 ? (
           <div className="text-center py-6 text-gray-400 italic">
-            No students recognized yet.
+            No students recognized yet for today.
           </div>
         ) : (
           <ul className="divide-y divide-neutral-700 max-h-[450px] overflow-y-auto custom-scroll">
             {recognizedStudents.map((s, idx) => (
               <li
-                key={s.student_id || idx}
+                key={`${s.student_id}-${idx}`}
                 className="flex items-center justify-between py-3 px-3 hover:bg-neutral-700/40 rounded-md transition"
               >
                 {/* Student Info */}

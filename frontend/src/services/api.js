@@ -120,6 +120,19 @@ export const getAttendanceReportByClass = async (id, from, to) => {
   return res.data.records || [];
 };
 
+export const getAttendanceReportAll = async (from, to) => {
+  const token = localStorage.getItem("token");
+  const params = new URLSearchParams();
+  if (from) params.append("from", from);
+  if (to) params.append("to", to);
+
+  const res = await API.get(
+    `/instructor/attendance-report/all?${params}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  return res.data || [];
+};
 
 // ==============================
 // 🔹 Student Dashboard

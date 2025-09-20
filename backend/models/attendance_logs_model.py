@@ -14,16 +14,11 @@ def _now_time_str():
     return datetime.now().strftime("%H:%M:%S")
 
 def _parse_class_start_time(class_start_time):
-    """
-    Ensure class_start_time is a datetime object.
-    Accepts datetime or string ("HH:MM" or "HH:MM:SS").
-    """
+    """Ensure class_start_time is a datetime object."""
     if not class_start_time:
         return None
-
     if isinstance(class_start_time, datetime):
         return class_start_time
-
     for fmt in ("%H:%M:%S", "%H:%M"):
         try:
             return datetime.strptime(class_start_time, fmt)
@@ -35,7 +30,7 @@ def _parse_class_start_time(class_start_time):
 # ✅ Save/append attendance for a student under (class_id, date)
 def log_attendance(class_data, student_data, status="Present", class_start_time=None):
     now = datetime.utcnow()
-    today_date = _today_date()   # ✅ store as datetime, not string
+    today_date = _today_date()
     time_str = _now_time_str()
 
     # ---- compute status (Present/Late) ----
@@ -59,7 +54,7 @@ def log_attendance(class_data, student_data, status="Present", class_start_time=
         "instructor_last_name": class_data.get("instructor_last_name"),
         "course": class_data.get("course"),
         "section": class_data.get("section"),
-        "date": today_date,   # ✅ datetime
+        "date": today_date,   # ✅ store as datetime
         "students": []
     }
 
@@ -102,7 +97,7 @@ def log_attendance(class_data, student_data, status="Present", class_start_time=
     print(f"✅ {status} logged for {student_data['first_name']} {student_data['last_name']}")
     return {
         "class_id": class_data["class_id"],
-        "date": today_date.strftime("%Y-%m-%d"),  # ✅ safe for API
+        "date": today_date.strftime("%Y-%m-%d"),
         "student_id": student_data["student_id"],
         "status": status,
         "time": time_str
@@ -143,7 +138,7 @@ def get_attendance_logs_by_student(student_id):
                 "instructor_last_name": d.get("instructor_last_name"),
                 "course": d.get("course"),
                 "section": d.get("section"),
-                "date": d.get("date").strftime("%Y-%m-%d"),  # ✅ always return string for API
+                "date": d.get("date").strftime("%Y-%m-%d"),
                 "student": s
             })
     return results
@@ -152,11 +147,11 @@ def get_attendance_logs_by_student(student_id):
 # ✅ Attendance Report by class ID and date range
 def get_attendance_logs_by_class_and_date(class_id, start_date, end_date):
     start = datetime.strptime(start_date, "%Y-%m-%d") if start_date else None
-    end = (datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)) if end_date else None
+    end = datetime.strptime(end_date, "%Y-%m-%d") if end_date else None
 
     query = {"class_id": class_id}
     if start and end:
-        query["date"] = {"$gte": start, "$lt": end}
+        query["date"] = {"$gte": start, "$lte": end}  # ✅ inclusive
 
     docs = attendance_logs_collection.find(query, sort=[("date", 1)])
     results = []
