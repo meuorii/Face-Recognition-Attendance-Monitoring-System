@@ -17,57 +17,42 @@ const AttendanceSession = () => {
     const fetchData = async () => {
       try {
         const sessionRes = await getActiveAttendanceSession();
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
 
-        // get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().split("T")[0];
+        const fetchLogs = async (classId) => {
+          const logsRes = await getAttendanceLogs(classId);
+          if (logsRes?.logs?.length > 0) {
+            // ✅ Flatten and filter students by time_logged (not just log.date)
+            const todayStudents = logsRes.logs.flatMap((log) =>
+              (log.students || []).filter((s) => {
+                if (!s.time_logged) return false;
+                const logDate = new Date(s.time_logged)
+                  .toISOString()
+                  .split("T")[0];
+                return logDate === today;
+              })
+            );
+
+            setRecognizedStudents(todayStudents);
+          } else {
+            setRecognizedStudents([]);
+          }
+        };
 
         if (sessionRes?.active && sessionRes.class) {
           setActiveClass(sessionRes.class);
           setLastClassId(sessionRes.class.class_id);
-
-          const logsRes = await getAttendanceLogs(sessionRes.class.class_id);
-          if (logsRes?.logs?.length > 0) {
-            // filter only today's logs
-            const todayLogs = logsRes.logs.filter(
-              (log) => log.date && log.date.startsWith(today)
-            );
-
-            const allStudents = todayLogs.flatMap((log) =>
-              (log.students || []).map((s) => ({
-                ...s,
-                logDate: log.date,
-              }))
-            );
-
-            setRecognizedStudents(allStudents);
-          } else {
-            setRecognizedStudents([]);
-          }
+          await fetchLogs(sessionRes.class.class_id);
         } else if (lastClassId) {
-          // session ended, still fetch today's logs for that class
+          // session ended, still fetch today’s logs
           setActiveClass(null);
-          const logsRes = await getAttendanceLogs(lastClassId);
-          if (logsRes?.logs?.length > 0) {
-            const todayLogs = logsRes.logs.filter(
-              (log) => log.date && log.date.startsWith(today)
-            );
-
-            const allStudents = todayLogs.flatMap((log) =>
-              (log.students || []).map((s) => ({
-                ...s,
-                logDate: log.date,
-              }))
-            );
-
-            setRecognizedStudents(allStudents);
-          } else {
-            setRecognizedStudents([]);
-          }
+          await fetchLogs(lastClassId);
         } else {
           setActiveClass(null);
           setRecognizedStudents([]);
         }
-      } catch {
+      } catch (err) {
+        console.error("Fetch error:", err);
         toast.error("⚠ Failed to fetch attendance session.");
       } finally {
         setLoading(false);
@@ -108,7 +93,6 @@ const AttendanceSession = () => {
           <p className="text-gray-400 text-sm italic">No active session.</p>
         )}
 
-        {/* Always show today's date */}
         <span className="inline-block bg-green-700/30 text-green-300 text-xs font-medium px-3 py-1 rounded-full mt-1 w-fit shadow">
           {formatDate(new Date().toISOString())}
         </span>

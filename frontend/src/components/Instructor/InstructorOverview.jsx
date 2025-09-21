@@ -6,6 +6,9 @@ import {
   FaCalendarAlt,
   FaChartLine,
   FaClipboardList,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaClock,
 } from "react-icons/fa";
 import {
   PieChart,
@@ -31,7 +34,7 @@ const InstructorOverview = () => {
   const instructor = JSON.parse(localStorage.getItem("userData"));
   const token = localStorage.getItem("token");
 
-  const COLORS = ["#22c55e", "#ef4444"];
+  const COLORS = ["#22c55e", "#facc15", "#ef4444"]; // ✅ green, yellow, red
 
   useEffect(() => {
     if (!instructor?.instructor_id || !token) {
@@ -64,7 +67,10 @@ const InstructorOverview = () => {
         setAttendanceTrend(trendRes.data);
         setClassSummary(classRes.data);
       } catch (err) {
-        console.error("❌ Failed to load overview:", err.response?.data || err.message);
+        console.error(
+          "❌ Failed to load overview:",
+          err.response?.data || err.message
+        );
         toast.error("Failed to load overview data.");
       } finally {
         setLoading(false);
@@ -98,40 +104,64 @@ const InstructorOverview = () => {
       </h2>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
         <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
           <FaChalkboardTeacher className="text-green-400 text-3xl" />
           <div>
             <p className="text-gray-400 text-sm">Total Classes</p>
-            <h3 className="text-xl font-semibold">{overviewData.totalClasses}</h3>
+            <h3 className="text-xl font-semibold">
+              {overviewData.totalClasses}
+            </h3>
           </div>
         </div>
         <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
           <FaUsers className="text-green-400 text-3xl" />
           <div>
             <p className="text-gray-400 text-sm">Total Students</p>
-            <h3 className="text-xl font-semibold">{overviewData.totalStudents}</h3>
+            <h3 className="text-xl font-semibold">
+              {overviewData.totalStudents}
+            </h3>
           </div>
         </div>
         <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
           <FaCalendarAlt className="text-green-400 text-3xl" />
           <div>
             <p className="text-gray-400 text-sm">Active Sessions</p>
-            <h3 className="text-xl font-semibold">{overviewData.activeSessions}</h3>
+            <h3 className="text-xl font-semibold">
+              {overviewData.activeSessions}
+            </h3>
           </div>
         </div>
-        <div className="bg-neutral-800 p-5 rounded-xl shadow flex flex-col justify-center">
-          <p className="text-gray-400 text-sm mb-1">Attendance Rate</p>
-          <div className="w-full bg-neutral-700 rounded-full h-3">
-            <div
-              className="bg-green-500 h-3 rounded-full"
-              style={{ width: `${overviewData.attendanceRate}%` }}
-            />
+        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
+          <FaCheckCircle className="text-green-400 text-3xl" />
+          <div>
+            <p className="text-gray-400 text-sm">Present</p>
+            <h3 className="text-xl font-semibold">
+              {overviewData.present || 0}
+            </h3>
           </div>
-          <p className="text-right text-sm font-semibold mt-1">
-            {overviewData.attendanceRate}%
-          </p>
         </div>
+        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
+          <FaClock className="text-yellow-400 text-3xl" />
+          <div>
+            <p className="text-gray-400 text-sm">Late</p>
+            <h3 className="text-xl font-semibold">{overviewData.late || 0}</h3>
+          </div>
+        </div>
+      </div>
+
+      {/* Attendance Rate Progress */}
+      <div className="bg-neutral-800 p-5 rounded-xl shadow mb-10">
+        <p className="text-gray-400 text-sm mb-1">Attendance Rate</p>
+        <div className="w-full bg-neutral-700 rounded-full h-3">
+          <div
+            className="bg-green-500 h-3 rounded-full"
+            style={{ width: `${overviewData.attendanceRate}%` }}
+          />
+        </div>
+        <p className="text-right text-sm font-semibold mt-1">
+          {overviewData.attendanceRate}%
+        </p>
       </div>
 
       {/* Middle Section: Attendance Trend + Attendance Pie */}
@@ -147,7 +177,12 @@ const InstructorOverview = () => {
               <XAxis dataKey="_id" stroke="#888" />
               <YAxis stroke="#888" />
               <Tooltip />
-              <Line type="monotone" dataKey="rate" stroke="#22c55e" strokeWidth={2} />
+              <Line
+                type="monotone"
+                dataKey="rate"
+                stroke="#22c55e"
+                strokeWidth={2}
+              />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -161,8 +196,9 @@ const InstructorOverview = () => {
             <PieChart>
               <Pie
                 data={[
-                  { name: "Present", value: overviewData.attendanceRate },
-                  { name: "Absent", value: 100 - overviewData.attendanceRate },
+                  { name: "Present", value: overviewData.present || 0 },
+                  { name: "Late", value: overviewData.late || 0 },
+                  { name: "Absent", value: overviewData.absent || 0 },
                 ]}
                 cx="50%"
                 cy="50%"
@@ -208,7 +244,10 @@ const InstructorOverview = () => {
                   <td>
                     {c.schedule_blocks?.length > 0
                       ? c.schedule_blocks
-                          .map((b) => `${b.days?.join(", ")} • ${b.start}-${b.end}`)
+                          .map(
+                            (b) =>
+                              `${b.days?.join(", ")} • ${b.start}-${b.end}`
+                          )
                           .join(" | ")
                       : "N/A"}
                   </td>

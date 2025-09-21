@@ -4,7 +4,6 @@ import bcrypt
 from bson import ObjectId
 from datetime import datetime, timedelta
 from config.db_config import db
-from models.attendance_logs_model import get_attendance_logs_by_class_and_date
 from models.instructor_model import (
     find_instructor_by_id,
     find_instructor_by_email,
@@ -133,7 +132,7 @@ def get_assigned_students(class_id):
 
 
 # -------------------------------------------------
-# 🔹 Attendance Report
+# 🔹 Attendance Report (per class)
 # -------------------------------------------------
 @instructor_bp.route("/class/<class_id>/attendance-report", methods=["GET"])
 @jwt_required()
@@ -141,28 +140,28 @@ def attendance_report(class_id):
     start_date = request.args.get("from")
     end_date = request.args.get("to")
 
-    real_class_id = str(class_id)
-    query = {"class_id": real_class_id}
+    query = {"class_id": str(class_id)}
 
     if start_date and end_date:
         try:
-            start = datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=1)
-            end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-            query["date"] = {"$gte": start, "$lte": end}  # ✅ inclusive of end date
-        except Exception as e:
-            return jsonify({"error": f"Invalid date format. Use YYYY-MM-DD. ({e})"}), 400
+            start = datetime.fromisoformat(start_date).strftime("%Y-%m-%d")
+            end = (datetime.fromisoformat(end_date) + timedelta(days=1)).strftime("%Y-%m-%d")
+        except Exception:
+            start, end = start_date, end_date
 
-    print("📌 Attendance Query:", query)
-    logs = list(attendance_collection.find(query))
-    print(f"📌 Found {len(logs)} logs")
+        query["date"] = {"$gte": start, "$lt": end}
+
+    logs = list(attendance_collection.find(query).sort("date", 1))
 
     results = []
     for log in logs:
-        date_val = log.get("date")
-        date_str = date_val.strftime("%Y-%m-%d") if isinstance(date_val, datetime) else str(date_val)
+        date_str = str(log.get("date"))
         for s in log.get("students", []):
             results.append({
                 "date": date_str,
+                "class_id": log.get("class_id"),
+                "subject_code": log.get("subject_code"),
+                "subject_title": log.get("subject_title"),
                 "student_id": s.get("student_id"),
                 "first_name": s.get("first_name"),
                 "last_name": s.get("last_name"),
@@ -171,11 +170,15 @@ def attendance_report(class_id):
             })
 
     return jsonify({
-        "class_id": real_class_id,
+        "class_id": class_id,
         "count": len(results),
         "records": results
     }), 200
 
+
+# -------------------------------------------------
+# 🔹 Attendance Report (all classes)
+# -------------------------------------------------
 @instructor_bp.route("/attendance-report/all", methods=["GET"])
 @jwt_required()
 def attendance_report_all():
@@ -184,14 +187,12 @@ def attendance_report_all():
 
     query = {}
     if start_date and end_date:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-        query["date"] = {"$gte": start, "$lt": end}
+        query["date"] = {"$gte": start_date, "$lte": end_date}  # ✅ string-based
 
     logs = list(attendance_collection.find(query))
     results = []
     for log in logs:
-        date_str = log.get("date").strftime("%Y-%m-%d")
+        date_str = str(log.get("date"))
         for s in log.get("students", []):
             results.append({
                 "class_id": log.get("class_id"),
@@ -205,6 +206,7 @@ def attendance_report_all():
                 "time": s.get("time"),
             })
     return jsonify(results), 200
+
 
 # -------------------------------------------------
 # 🔹 Test: Show All Classes
@@ -222,7 +224,7 @@ def list_all_class_assignments():
 # 🔹 Instructor Overview Endpoints
 # -------------------------------------------------
 
-# ✅ Dashboard Stats
+# ✅ Dashboard Stats (with Late + Absent counts)
 @instructor_bp.route("/<string:instructor_id>/overview", methods=["GET"])
 @jwt_required()
 def instructor_overview(instructor_id):
@@ -233,7 +235,7 @@ def instructor_overview(instructor_id):
         total_students = sum(len(cls.get("students", [])) for cls in classes)
         active_sessions = sum(1 for cls in classes if cls.get("is_attendance_active", False))
 
-        # Attendance rate
+        # Attendance stats
         class_ids = [str(cls["_id"]) for cls in classes]
         pipeline = [
             {"$match": {"class_id": {"$in": class_ids}}},
@@ -241,25 +243,42 @@ def instructor_overview(instructor_id):
             {"$group": {
                 "_id": None,
                 "total_records": {"$sum": 1},
-                "present_count": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}}
+                "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
+                "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
+                "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}}
             }}
         ]
+
         agg = list(attendance_collection.aggregate(pipeline))
-        total_records = agg[0]["total_records"] if agg else 0
-        present_count = agg[0]["present_count"] if agg else 0
-        attendance_rate = round((present_count / total_records) * 100, 2) if total_records else 0
+        if agg:
+            total_records = agg[0]["total_records"]
+            present_count = agg[0]["present"]
+            late_count = agg[0]["late"]
+            absent_count = agg[0]["absent"]
+        else:
+            total_records, present_count, late_count, absent_count = 0, 0, 0, 0
+
+        # ✅ Attendance rate counts Present + Late as attended
+        attendance_rate = (
+            round(((present_count + late_count) / total_records) * 100, 2)
+            if total_records else 0
+        )
 
         return jsonify({
             "totalClasses": total_classes,
             "totalStudents": total_students,
             "activeSessions": active_sessions,
             "attendanceRate": attendance_rate,
+            "present": present_count,
+            "late": late_count,
+            "absent": absent_count,
+            "totalRecords": total_records
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ Attendance Trend (weekly average)
+# ✅ Attendance Trend (day-wise counts for Present, Late, Absent)
 @instructor_bp.route("/<string:instructor_id>/overview/attendance-trend", methods=["GET"])
 @jwt_required()
 def instructor_attendance_trend(instructor_id):
@@ -268,16 +287,29 @@ def instructor_attendance_trend(instructor_id):
             {"$match": {"instructor_id": instructor_id}},
             {"$unwind": "$students"},
             {"$group": {
-                "_id": {"week": {"$dateTrunc": {"date": "$date", "unit": "week"}}},
-                "rate": {"$avg": {"$cond": [{"$eq": ["$students.status", "Present"]}, 100, 0]}}
+                "_id": "$date",
+                "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
+                "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
+                "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}}
             }},
-            {"$sort": {"_id.week": 1}}
+            {"$sort": {"_id": 1}}
         ]
         trend = list(attendance_collection.aggregate(pipeline))
-        return jsonify(trend), 200
+
+        # Format nicely for frontend
+        formatted = [
+            {
+                "date": t["_id"],
+                "present": t["present"],
+                "late": t["late"],
+                "absent": t["absent"]
+            }
+            for t in trend
+        ]
+
+        return jsonify(formatted), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ✅ Class Summary for Overview
 @instructor_bp.route("/<string:instructor_id>/overview/classes", methods=["GET"])

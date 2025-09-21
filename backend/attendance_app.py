@@ -5,9 +5,9 @@ import numpy as np
 import threading
 import torch
 from scipy.spatial.distance import cosine
-from collections import defaultdict
 from insightface.app import FaceAnalysis
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from dateutil import parser  # ✅ safer datetime parser
 
 from utils.anti_spoofing import check_real_or_spoof
 from models.face_db_model import load_registered_faces, get_student_by_id
@@ -28,6 +28,9 @@ PAD_RATIO     = 0.25
 AS_THRESHOLD  = 0.80
 AS_DOUBLECHK  = True
 WIN_NAME      = "Attendance Session"
+
+# 🔹 Philippine Standard Time (UTC+8)
+PH_TZ = timezone(timedelta(hours=8))
 
 # -----------------------------
 # Globals
@@ -118,17 +121,11 @@ def set_backend_inactive(class_id: str) -> bool:
 
 
 def post_attendance_log(class_meta: dict, student: dict, status: str = "Present"):
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")  # ✅ ensure backend expects YYYY-MM-DD
+    # ✅ Use Philippine local date
+    today_str = datetime.now(PH_TZ).strftime("%Y-%m-%d")
 
     payload = {
         "class_id": class_meta.get("class_id"),
-        "class_code": class_meta.get("class_code"),
-        "class_title": class_meta.get("class_title"),
-        "instructor_id": class_meta.get("instructor_id"),
-        "instructor_first_name": class_meta.get("instructor_first_name"),
-        "instructor_last_name": class_meta.get("instructor_last_name"),
-        "course": class_meta.get("course"),
-        "section": class_meta.get("section"),
         "student": {
             "student_id": student["student_id"],
             "first_name": student.get("first_name", ""),
@@ -138,22 +135,29 @@ def post_attendance_log(class_meta: dict, student: dict, status: str = "Present"
         "date": today_str
     }
 
-    resp = requests.post(LOG_URL, json=payload, timeout=5)
-    resp.raise_for_status()
-    return resp.json()
+    try:
+        resp = requests.post(LOG_URL, json=payload, timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        print("⚠️ Failed to log attendance:", e)
+        return None
 
 
 def read_active_class():
-    r = requests.get(ACTIVE_URL, timeout=5).json()
-    if not r.get("active"):
-        return False, None
-    cls = r.get("class")
-    if cls and isinstance(cls, dict):
-        return True, cls
-    cid = r.get("class_id")
-    if cid:
-        return True, {"class_id": cid}
-    return True, None
+    try:
+        r = requests.get(ACTIVE_URL, timeout=5).json()
+        if not r.get("active"):
+            return False, None
+        cls = r.get("class")
+        if cls and isinstance(cls, dict):
+            return True, cls
+        cid = r.get("class_id")
+        if cid:
+            return True, {"class_id": cid}
+    except Exception as e:
+        print("⚠️ Failed to read active class:", e)
+    return False, None
 
 # -----------------------------
 # Polling thread
@@ -161,18 +165,13 @@ def read_active_class():
 def poll_backend(class_id):
     global session_active, user_quit_app
     while session_active and not user_quit_app:
-        try:
-            active, cls = read_active_class()
-            if not active:
-                session_active = False
-                break
-            active_cid = (cls or {}).get("class_id")
-            if active_cid and active_cid != class_id:
-                print("🛑 Backend says session switched/stopped.")
-                session_active = False
-                break
-        except Exception as e:
-            print("⚠️ Could not reach backend:", e)
+        active, cls = read_active_class()
+        if not active:
+            session_active = False
+            break
+        active_cid = (cls or {}).get("class_id")
+        if active_cid and active_cid != class_id:
+            print("🛑 Backend says session switched/stopped.")
             session_active = False
             break
         time.sleep(POLL_INTERVAL)
@@ -213,6 +212,21 @@ def run_attendance_session(class_meta) -> bool:
         print("❌ Missing class_id in class_meta; aborting session.")
         return False
 
+    # Grace period for late (2 mins for testing)
+    start_str = class_meta.get("attendance_start_time")
+    grace_period = 2 * 60
+    start_dt = None
+    if start_str:
+        try:
+            start_dt = parser.parse(start_str)
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=PH_TZ)  # ✅ force PH timezone
+            else:
+                start_dt = start_dt.astimezone(PH_TZ)
+            print(f"🕒 Parsed start_dt={start_dt} | Grace={grace_period}s")
+        except Exception as e:
+            print("⚠️ Failed to parse start time:", e)
+
     db = load_embeddings_for_class(class_meta)
     recognized_students = set()
     frame_count, faces = 0, None
@@ -223,8 +237,11 @@ def run_attendance_session(class_meta) -> bool:
     print(f"📸 Attendance started for class {class_id}")
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 
-    cv2.namedWindow(WIN_NAME, cv2.WND_PROP_FULLSCREEN)
-    cv2.setWindowProperty(WIN_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    if not cap.isOpened():
+        print("❌ Camera not available.")
+        return False
+
+    cv2.namedWindow(WIN_NAME, cv2.WINDOW_NORMAL)
 
     while session_active and not user_quit_app:
         ok, frame = cap.read()
@@ -247,7 +264,12 @@ def run_attendance_session(class_meta) -> bool:
                 if face_img.size == 0:
                     continue
 
-                is_real, _, _ = check_real_or_spoof(face_img, threshold=AS_THRESHOLD, double_check=AS_DOUBLECHK)
+                try:
+                    is_real, _, _ = check_real_or_spoof(face_img, threshold=AS_THRESHOLD, double_check=AS_DOUBLECHK)
+                except Exception as e:
+                    print("⚠️ Anti-spoof error:", e)
+                    continue
+
                 color, label = (0, 0, 255), "Spoof"
                 if is_real:
                     sid, _ = (None, None)
@@ -260,15 +282,25 @@ def run_attendance_session(class_meta) -> bool:
                         last  = student.get("last_name")  or student.get("Last_Name", "")
                         full_name = f"{first} {last}".strip() or sid
 
-                        label, color = full_name, (40, 200, 60)
+                        # Decide Present or Late
+                        status, color = "Present", (40, 200, 60)
+                        if start_dt:
+                            now = datetime.now(PH_TZ)  # ✅ PH time now
+                            deadline = start_dt + timedelta(seconds=grace_period)
+                            print(f"➡️ Now={now}, Start={start_dt}, Deadline={deadline}")
+                            if now > deadline:
+                                status, color = "Late", (0, 255, 255)
+
+                        label = f"{full_name} ({status})"
+
                         if sid not in recognized_students:
                             post_attendance_log(class_meta, {
                                 "student_id": sid,
                                 "first_name": first,
                                 "last_name": last
-                            }, "Present")
+                            }, status)
                             recognized_students.add(sid)
-                            print(f"✅ Marked {full_name} as Present")
+                            print(f"✅ Marked {full_name} as {status}")
                     else:
                         label, color = "Unknown", (0, 200, 200)
 
@@ -277,13 +309,12 @@ def run_attendance_session(class_meta) -> bool:
 
         elapsed = _format_mmss(time.time() - t_start)
         _draw_small_text(frame, f"Timer {elapsed}", (12, 22), (230, 230, 230), 0.6, 1)
-        _draw_small_text(frame, f"Present {len(recognized_students)}/{len(db)}", (12, 42), (180, 255, 180), 0.6, 1)
+        _draw_small_text(frame, f"Recognized {len(recognized_students)}/{len(db)}", (12, 42), (180, 255, 180), 0.6, 1)
 
         cv2.imshow(WIN_NAME, frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             user_quit_app, session_active = True, False
-            if not set_backend_inactive(class_id):
-                print("⚠️ Backend not updated; skipping rerun until backend inactive.")
+            set_backend_inactive(class_id)
             break
 
     cap.release()
@@ -298,25 +329,22 @@ if __name__ == "__main__":
     print("🚀 Attendance App is running... (CUDA:", cuda_ok, ")")
 
     while True:
-        try:
-            active, cls = read_active_class()
-            if active:
-                if cls is None:
-                    print("⚠️ Active session but no class payload; waiting…")
-                    session_skipped = False
-                else:
-                    class_id = cls.get("class_id")
-                    if class_id and not session_skipped:
-                        run_attendance_session(cls)
-                        session_skipped = True
-                    elif not class_id:
-                        print("⚠️ Active session but class_id missing; waiting…")
-                    else:
-                        print("⏳ Session remains active; rerun skipped (pressed 'q').")
-            else:
-                print("⏳ Waiting for active session...")
+        active, cls = read_active_class()
+        if active:
+            if cls is None:
+                print("⚠️ Active session but no class payload; waiting…")
                 session_skipped = False
-        except Exception as e:
-            print("❌ Error contacting backend:", e)
+            else:
+                class_id = cls.get("class_id")
+                if class_id and not session_skipped:
+                    run_attendance_session(cls)
+                    session_skipped = True
+                elif not class_id:
+                    print("⚠️ Active session but class_id missing; waiting…")
+                else:
+                    print("⏳ Session remains active; rerun skipped (pressed 'q').")
+        else:
+            print("⏳ Waiting for active session...")
+            session_skipped = False
 
         time.sleep(POLL_INTERVAL)

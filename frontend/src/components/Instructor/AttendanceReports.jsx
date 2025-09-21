@@ -109,6 +109,8 @@ const AttendanceReport = () => {
           date: log.date,
           status: log.status,
           time: log.time,
+          subject_code: log.subject_code || null,
+          subject_title: log.subject_title || null
         });
       });
 
@@ -145,7 +147,7 @@ const AttendanceReport = () => {
     doc.save("attendance_report.pdf");
   };
 
-  // Summary stats
+ // Summary stats
   const totalStudents = logs.length;
   const totalSessions = logs.reduce(
     (sum, log) => Math.max(sum, log.statuses.length),
@@ -155,9 +157,15 @@ const AttendanceReport = () => {
     (sum, log) => sum + log.total_attendances,
     0
   );
-  const totalPresent = logs.reduce((sum, log) => sum + log.present, 0);
+
+  // ✅ Count both Present + Late as attended
+  const totalAttended = logs.reduce(
+    (sum, log) => sum + log.present + log.late,
+    0
+  );
+
   const attendanceRate = totalRecords
-    ? ((totalPresent / totalRecords) * 100).toFixed(2)
+    ? ((totalAttended / totalRecords) * 100).toFixed(2)
     : 0;
 
   // Chart data

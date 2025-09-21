@@ -4,10 +4,12 @@ import { FaCheckCircle, FaTimesCircle, FaClock, FaCalendarAlt } from "react-icon
 const DailyLogsModal = ({ student }) => {
   if (!student) return null;
 
-  const totalLogs = student.statuses.length;
-  const presentCount = student.statuses.filter((s) => s.status === "Present").length;
-  const absentCount = student.statuses.filter((s) => s.status === "Absent").length;
-  const lateCount = student.statuses.filter((s) => s.status === "Late").length;
+  const logs = student.records || student.statuses || [];
+
+  const totalLogs = logs.length;
+  const presentCount = logs.filter((s) => s.status === "Present").length;
+  const absentCount = logs.filter((s) => s.status === "Absent").length;
+  const lateCount = logs.filter((s) => s.status === "Late").length;
 
   return (
     <div className="w-full">
@@ -55,38 +57,61 @@ const DailyLogsModal = ({ student }) => {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto max-h-80 overflow-y-auto border border-neutral-700 rounded-xl shadow-sm">
+      <div className="overflow-x-auto max-h-96 overflow-y-auto border border-neutral-700 rounded-xl shadow-sm">
         <table className="min-w-full text-sm text-left text-gray-300">
           <thead className="bg-neutral-800 text-green-400 sticky top-0 z-10">
             <tr>
-              <th className="px-4 py-3">Date</th>
-              <th>Status</th>
-              <th>Time</th>
+              <th className="px-6 py-3 w-32">Date</th>
+              <th className="px-6 py-3">Subject</th>
+              <th className="px-6 py-3 w-28">Status</th>
+              <th className="px-6 py-3 w-28">Time</th>
             </tr>
           </thead>
           <tbody>
-            {student.statuses.map((s, i) => (
-              <tr
-                key={i}
-                className={`${
-                  i % 2 === 0 ? "bg-neutral-900" : "bg-neutral-800/60"
-                } border-b border-neutral-700 hover:bg-neutral-700/40 transition`}
-              >
-                <td className="px-4 py-3">{s.date}</td>
-                <td
-                  className={`font-semibold ${
-                    s.status === "Present"
-                      ? "text-green-400"
-                      : s.status === "Absent"
-                      ? "text-red-400"
-                      : "text-yellow-400"
-                  }`}
+            {logs.length > 0 ? (
+              logs.map((s, i) => (
+                <tr
+                  key={i}
+                  className={`${
+                    i % 2 === 0 ? "bg-neutral-900/60" : "bg-neutral-800/50"
+                  } border-b border-neutral-700 hover:bg-neutral-700/50 transition`}
                 >
-                  {s.status}
+                  <td className="px-6 py-3">{s.date || "N/A"}</td>
+                  <td className="px-6 py-3 font-medium text-white">
+                    {s.subject_code ? (
+                      <>
+                        <span className="font-semibold">{s.subject_code}</span>
+                        {s.subject_title && (
+                          <span className="text-gray-400"> – {s.subject_title}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-gray-500 italic">No Subject</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        s.status === "Present"
+                          ? "bg-green-500/20 text-green-400"
+                          : s.status === "Absent"
+                          ? "bg-red-500/20 text-red-400"
+                          : "bg-yellow-500/20 text-yellow-400"
+                      }`}
+                    >
+                      {s.status || "N/A"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3">{s.time || "N/A"}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="text-center py-6 text-gray-500 italic">
+                  No attendance logs available
                 </td>
-                <td>{s.time}</td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

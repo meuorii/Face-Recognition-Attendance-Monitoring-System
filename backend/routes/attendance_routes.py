@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from utils.attendance_session import (
     start_attendance_session,
@@ -22,24 +22,26 @@ from models.attendance_model import (
 
 attendance_bp = Blueprint("attendance", __name__)
 
+# -----------------------------
+# Timezone
+# -----------------------------
+PH_TZ = timezone(timedelta(hours=8))  # Philippine Time
 
 # -----------------------------
 # Utilities
 # -----------------------------
 def _today_date():
-    """Return today's date normalized to midnight (datetime)."""
-    return datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-
+    """Return today's date normalized to midnight (PH time)."""
+    return datetime.now(PH_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
 
 def _parse_date(date_str):
-    """Convert YYYY-MM-DD string to datetime, fallback to today."""
+    """Convert YYYY-MM-DD string to datetime (PH tz), fallback to today."""
     if not date_str:
         return _today_date()
     try:
-        return datetime.strptime(date_str, "%Y-%m-%d")
+        return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=PH_TZ)
     except ValueError:
         return _today_date()
-
 
 def _class_to_payload(cls):
     if not cls:
@@ -59,6 +61,9 @@ def _class_to_payload(cls):
         "students": cls.get("students", []),
     }
 
+# -----------------------------
+# API ROUTES
+# -----------------------------
 
 # ✅ Start attendance session
 @attendance_bp.route("/start-session", methods=["POST"])
@@ -87,8 +92,7 @@ def start_session():
         print("❌ Error in /start-session:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 
-
-# ✅ Stop attendance session
+# ✅ Stop attendance session (auto-mark absentees)
 @attendance_bp.route("/stop-session", methods=["POST"])
 def stop_session():
     try:
@@ -103,9 +107,29 @@ def stop_session():
             return jsonify({"error": f"No active session for class {class_id}"}), 400
 
         cls = classes_collection.find_one({"_id": ObjectId(class_id)})
+        if not cls:
+            return jsonify({"error": "Class not found"}), 404
+
+        # 🔹 Auto mark absentees
+        today = _today_date()
+        today_str = today.strftime("%Y-%m-%d")
+        today_logs = get_attendance_logs_by_class_and_date(class_id, today_str, today_str)
+
+        logged_ids = {
+            s["student_id"] for log in today_logs for s in log.get("students", [])
+        }
+        all_students = cls.get("students", [])
+        absent_students = [
+            s for s in all_students if s.get("student_id") not in logged_ids
+        ]
+
+        if absent_students:
+            class_data = _class_to_payload(cls)
+            mark_absent_bulk(class_data, today, absent_students)
+
         return jsonify({
             "success": True,
-            "message": f"🛑 Attendance session stopped for class {class_id}",
+            "message": f"🛑 Session stopped. Absent marked for {len(absent_students)} students.",
             "class": _class_to_payload(cls),
         }), 200
 
@@ -113,7 +137,6 @@ def stop_session():
         import traceback
         print("❌ Error in /stop-session:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
-
 
 # ✅ Get currently active session
 @attendance_bp.route("/active-session", methods=["GET"])
@@ -129,28 +152,27 @@ def get_active_session():
         print("❌ Error in /active-session:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 
-
 # ✅ Log/Upsert a student's attendance
 @attendance_bp.route("/log", methods=["POST"])
 def log_attendance():
     try:
         data = request.get_json(silent=True) or {}
-        required = ["class_id", "student", "status"]
+        required = ["class_id", "student"]
         missing = [k for k in required if k not in data]
         if missing:
             return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
 
         class_id = data["class_id"]
-        status = data["status"]
         student_data = data["student"]
         date_val = _parse_date(data.get("date"))
+        status = data.get("status")  # optional (from client like attendance_app)
 
         # Validate student fields
         for f in ["student_id", "first_name", "last_name"]:
             if f not in student_data:
                 return jsonify({"error": f"Missing student.{f}"}), 400
 
-        # ✅ Always fetch class info from DB
+        # ✅ Fetch class info
         cls = classes_collection.find_one({"_id": ObjectId(class_id)})
         if not cls:
             return jsonify({"error": "Class not found"}), 404
@@ -166,27 +188,40 @@ def log_attendance():
             "section": cls.get("section"),
         }
 
-        log_attendance_model(
-            class_data=class_data,
-            student_data=student_data,
-            status=status,
-            date_val=date_val
-        )
+        if not status:
+            result = log_attendance_model(
+                class_data=class_data,
+                student_data=student_data,
+                date_val=date_val,
+                class_start_time=cls.get("attendance_start_time")
+            )
+        else:
+            result = log_attendance_model(
+                class_data=class_data,
+                student_data=student_data,
+                date_val=date_val,
+                class_start_time=None,
+                status=status
+            )
+
+        if result is None:
+            return jsonify({
+                "success": False,
+                "message": "⛔ Too late (>30 minutes). Attendance not recorded.",
+                "class_id": class_data["class_id"],
+                "student_id": student_data["student_id"],
+            }), 400
 
         return jsonify({
             "success": True,
-            "message": "Attendance recorded",
-            "class_id": class_data["class_id"],
-            "date": date_val.strftime("%Y-%m-%d"),
-            "student_id": student_data["student_id"],
-            "status": status
+            "message": f"Attendance recorded as {result['status']}",
+            **result
         }), 200
 
     except Exception:
         import traceback
         print("❌ Error in /log:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
-
 
 # ✅ Check if student already logged today
 @attendance_bp.route("/has-logged", methods=["GET"])
@@ -206,7 +241,6 @@ def has_logged():
         import traceback
         print("❌ Error in /has-logged:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
-
 
 # ✅ Get attendance logs for a class
 @attendance_bp.route("/logs/<class_id>", methods=["GET"])
@@ -234,8 +268,7 @@ def get_logs(class_id):
         print("❌ Error in /logs:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
 
-
-# ✅ Bulk mark ABSENT for students
+# ✅ Bulk mark ABSENT for students (manual)
 @attendance_bp.route("/mark-absent", methods=["POST"])
 def mark_absent():
     try:
@@ -248,7 +281,6 @@ def mark_absent():
 
         date_val = _parse_date(data.get("date"))
 
-        # ✅ Always fetch class info from DB
         cls = classes_collection.find_one({"_id": ObjectId(class_id)})
         if not cls:
             return jsonify({"error": "Class not found"}), 404
@@ -271,7 +303,7 @@ def mark_absent():
             "message": "Absent marked (where missing)",
             "class_id": class_id,
             "date": date_val.strftime("%Y-%m-%d"),
-            "count": len(students)
+            "count": len(students),
         }), 200
 
     except Exception:
