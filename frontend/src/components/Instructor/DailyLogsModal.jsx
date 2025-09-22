@@ -11,6 +11,30 @@ const DailyLogsModal = ({ student }) => {
   const absentCount = logs.filter((s) => s.status === "Absent").length;
   const lateCount = logs.filter((s) => s.status === "Late").length;
 
+  // ✅ Format time into AM/PM
+  const formatTime = (timeStr) => {
+    if (!timeStr) return "N/A";
+    const dateObj = new Date(`1970-01-01T${timeStr}`);
+    if (isNaN(dateObj.getTime())) return timeStr;
+    return dateObj.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  // ✅ Format date into "Month Day, Year"
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "N/A";
+    const dateObj = new Date(dateStr);
+    if (isNaN(dateObj.getTime())) return dateStr; // fallback if invalid
+    return dateObj.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
   return (
     <div className="w-full">
       {/* Header */}
@@ -61,10 +85,10 @@ const DailyLogsModal = ({ student }) => {
         <table className="min-w-full text-sm text-left text-gray-300">
           <thead className="bg-neutral-800 text-green-400 sticky top-0 z-10">
             <tr>
-              <th className="px-6 py-3 w-32">Date</th>
+              <th className="px-6 py-3 whitespace-nowrap">Date</th>
               <th className="px-6 py-3">Subject</th>
-              <th className="px-6 py-3 w-28">Status</th>
-              <th className="px-6 py-3 w-28">Time</th>
+              <th className="px-6 py-3 whitespace-nowrap">Status</th>
+              <th className="px-6 py-3 whitespace-nowrap">Time</th>
             </tr>
           </thead>
           <tbody>
@@ -76,7 +100,7 @@ const DailyLogsModal = ({ student }) => {
                     i % 2 === 0 ? "bg-neutral-900/60" : "bg-neutral-800/50"
                   } border-b border-neutral-700 hover:bg-neutral-700/50 transition`}
                 >
-                  <td className="px-6 py-3">{s.date || "N/A"}</td>
+                  <td className="px-6 py-3 whitespace-nowrap">{formatDate(s.date)}</td>
                   <td className="px-6 py-3 font-medium text-white">
                     {s.subject_code ? (
                       <>
@@ -102,7 +126,7 @@ const DailyLogsModal = ({ student }) => {
                       {s.status || "N/A"}
                     </span>
                   </td>
-                  <td className="px-6 py-3">{s.time || "N/A"}</td>
+                  <td className="px-6 py-3 whitespace-nowrap">{formatTime(s.time)}</td>
                 </tr>
               ))
             ) : (
