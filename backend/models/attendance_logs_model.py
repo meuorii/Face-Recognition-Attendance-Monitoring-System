@@ -94,9 +94,9 @@ def log_attendance(class_data, student_data, status="Present", class_start_time=
     parsed_start = _parse_class_start_time(class_start_time)
     if parsed_start:
         minutes_late = (now - parsed_start).total_seconds() / 60
-        if 15 <= minutes_late < 30:
+        if 1 <= minutes_late < 2:
             status = "Late"
-        elif minutes_late >= 30:
+        elif minutes_late >= 2:
             close_attendance_session(class_data["class_id"])
             print("⛔ Too late. Attendance window closed.")
             return None
@@ -168,6 +168,7 @@ def get_attendance_logs_by_student(student_id):
     docs = attendance_logs_collection.find(
         {"students.student_id": student_id}
     ).sort("date", -1)
+
     results = []
     for d in docs:
         s = next((x for x in d.get("students", []) if x.get("student_id") == student_id), None)
@@ -183,9 +184,21 @@ def get_attendance_logs_by_student(student_id):
                 "course": d.get("course"),
                 "section": d.get("section"),
                 "date": d.get("date"),
-                "student": s
+
+                # 🔽 Flattened student fields
+                "student_id": s.get("student_id"),
+                "first_name": s.get("first_name"),
+                "last_name": s.get("last_name"),
+                "status": s.get("status"),
+                "time": s.get("time"),
+                "time_logged": (
+                    s.get("time_logged").astimezone(PH_TZ).strftime("%H:%M:%S")
+                    if isinstance(s.get("time_logged"), datetime)
+                    else s.get("time_logged")
+                ),
             })
     return results
+
 
 
 def get_attendance_logs_by_class_and_date(class_id, start_date, end_date):

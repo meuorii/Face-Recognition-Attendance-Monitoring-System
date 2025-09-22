@@ -24,7 +24,7 @@ POLL_INTERVAL = 5
 MATCH_THRESH  = 0.55
 SKIP_FRAMES   = 5
 FRAME_SIZE    = (640, 480)
-PAD_RATIO     = 0.25
+PAD_RATIO     = 0.1   # 🔽 smaller padding to reduce bbox size
 AS_THRESHOLD  = 0.80
 AS_DOUBLECHK  = True
 WIN_NAME      = "Attendance Session"
@@ -256,56 +256,63 @@ def run_attendance_session(class_meta) -> bool:
             faces = face_app.get(frame)
 
         if faces:
-            for f in faces:
-                if not hasattr(f, "bbox"):
-                    continue
-                x1, y1, x2, y2 = _expand_and_clip_bbox(f.bbox, W, H, pad_ratio=PAD_RATIO)
-                face_img = frame[y1:y2, x1:x2]
-                if face_img.size == 0:
-                    continue
+            # ✅ pick largest face only
+            largest_face = max(faces, key=lambda f: (f.bbox[2]-f.bbox[0]) * (f.bbox[3]-f.bbox[1]))
+            faces_to_process = [largest_face]
+        else:
+            faces_to_process = []
 
-                try:
-                    is_real, _, _ = check_real_or_spoof(face_img, threshold=AS_THRESHOLD, double_check=AS_DOUBLECHK)
-                except Exception as e:
-                    print("⚠️ Anti-spoof error:", e)
-                    continue
+        for f in faces_to_process:
+            if not hasattr(f, "bbox"):
+                continue
+            x1, y1, x2, y2 = _expand_and_clip_bbox(f.bbox, W, H, pad_ratio=PAD_RATIO)
+            face_img = frame[y1:y2, x1:x2]
+            if face_img.size == 0:
+                continue
 
-                color, label = (0, 0, 255), "Spoof"
-                if is_real:
-                    sid, _ = (None, None)
-                    if hasattr(f, "embedding") and f.embedding is not None:
-                        sid, _ = find_matching_user(f.embedding, db, threshold=MATCH_THRESH)
+            try:
+                # 🔽 resize before anti-spoofing to save compute
+                face_resized = cv2.resize(face_img, (128, 128))
+                is_real, _, _ = check_real_or_spoof(face_resized, threshold=AS_THRESHOLD, double_check=AS_DOUBLECHK)
+            except Exception as e:
+                print("⚠️ Anti-spoof error:", e)
+                continue
 
-                    if sid:
-                        student = get_student_by_id(sid) or {}
-                        first = student.get("first_name") or student.get("First_Name", "")
-                        last  = student.get("last_name")  or student.get("Last_Name", "")
-                        full_name = f"{first} {last}".strip() or sid
+            color, label = (0, 0, 255), "Spoof"
+            if is_real:
+                sid, _ = (None, None)
+                if hasattr(f, "embedding") and f.embedding is not None:
+                    sid, _ = find_matching_user(f.embedding, db, threshold=MATCH_THRESH)
 
-                        # Decide Present or Late
-                        status, color = "Present", (40, 200, 60)
-                        if start_dt:
-                            now = datetime.now(PH_TZ)  # ✅ PH time now
-                            deadline = start_dt + timedelta(seconds=grace_period)
-                            print(f"➡️ Now={now}, Start={start_dt}, Deadline={deadline}")
-                            if now > deadline:
-                                status, color = "Late", (0, 255, 255)
+                if sid:
+                    student = get_student_by_id(sid) or {}
+                    first = student.get("first_name") or student.get("First_Name", "")
+                    last  = student.get("last_name")  or student.get("Last_Name", "")
+                    full_name = f"{first} {last}".strip() or sid
 
-                        label = f"{full_name} ({status})"
+                    # Decide Present or Late
+                    status, color = "Present", (40, 200, 60)
+                    if start_dt:
+                        now = datetime.now(PH_TZ)  # ✅ PH time now
+                        deadline = start_dt + timedelta(seconds=grace_period)
+                        if now > deadline:
+                            status, color = "Late", (0, 255, 255)
 
-                        if sid not in recognized_students:
-                            post_attendance_log(class_meta, {
-                                "student_id": sid,
-                                "first_name": first,
-                                "last_name": last
-                            }, status)
-                            recognized_students.add(sid)
-                            print(f"✅ Marked {full_name} as {status}")
-                    else:
-                        label, color = "Unknown", (0, 200, 200)
+                    label = f"{full_name} ({status})"
 
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                _draw_small_text(frame, label, (x1, max(18, y1 - 8)), color)
+                    if sid not in recognized_students:
+                        post_attendance_log(class_meta, {
+                            "student_id": sid,
+                            "first_name": first,
+                            "last_name": last
+                        }, status)
+                        recognized_students.add(sid)
+                        print(f"✅ Marked {full_name} as {status}")
+                else:
+                    label, color = "Unknown", (0, 200, 200)
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+            _draw_small_text(frame, label, (x1, max(18, y1 - 8)), color)
 
         elapsed = _format_mmss(time.time() - t_start)
         _draw_small_text(frame, f"Timer {elapsed}", (12, 22), (230, 230, 230), 0.6, 1)

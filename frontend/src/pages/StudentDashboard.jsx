@@ -6,9 +6,10 @@ import StudentNavbar from "../components/Student/Navbar";
 import AssignedSubjects from "../components/Student/AssignedSubjects";
 import AttendanceHistory from "../components/Student/AttendanceHistory";
 import WeeklySchedule from "../components/Student/WeeklySchedule";
+import StudentOverview from "../components/Student/StudentOverview"; // ✅ NEW
 
 const StudentDashboard = () => {
-  const [activeTab, setActiveTab] = useState("assigned");
+  const [activeTab, setActiveTab] = useState("overview"); // ✅ default to overview
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [student, setStudent] = useState(null);
   const navigate = useNavigate();
@@ -63,6 +64,7 @@ const StudentDashboard = () => {
         />
 
         <main className="flex-1 p-4 md:p-6 pt-6 overflow-y-auto">
+          {activeTab === "overview" && <StudentOverview />} {/* ✅ New Overview Tab */}
           {activeTab === "assigned" && <AssignedSubjects />}
           {activeTab === "schedule" && (
             <div className="w-full">

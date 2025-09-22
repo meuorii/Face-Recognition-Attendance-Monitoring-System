@@ -265,14 +265,37 @@ def get_assigned_subjects(student_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ Attendance Logs
+# ✅ Attendance Logs (with summary)
 @student_bp.route("/<student_id>/attendance-logs", methods=["GET"])
 @jwt_required()
 def student_attendance_logs(student_id):
     try:
         logs = get_attendance_logs_by_student(student_id) or []
-        return jsonify(_list_to_jsonable(logs)), 200
+
+        # Ensure JSON serializable
+        logs_json = _list_to_jsonable(logs)
+
+        # Compute summary
+        total_sessions = len(logs_json)
+        present = sum(1 for l in logs_json if l.get("status") in ["Present", "Late"])
+        absent = sum(1 for l in logs_json if l.get("status") == "Absent")
+        late = sum(1 for l in logs_json if l.get("status") == "Late")
+
+        attendance_rate = round((present / total_sessions) * 100, 2) if total_sessions > 0 else 0
+
+        return jsonify({
+            "logs": logs_json,
+            "summary": {
+                "totalSessions": total_sessions,
+                "present": present,
+                "absent": absent,
+                "late": late,
+                "attendanceRate": attendance_rate
+            }
+        }), 200
+
     except Exception as e:
+        print("❌ Error in attendance-logs:", str(e))
         return jsonify({"error": str(e)}), 500
 
 
@@ -315,6 +338,141 @@ def get_student_schedule(student_id):
 
         return jsonify(weekly_schedule), 200
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ✅ Student Overview Endpoints
+@student_bp.route("/<string:student_id>/overview", methods=["GET"])
+@jwt_required()
+def student_overview(student_id):
+    try:
+        # Fetch classes enrolled
+        classes = list(classes_collection.find({"students.student_id": student_id}))
+        total_classes = len(classes)
+
+        # Total sessions (attendance logs count)
+        total_sessions = db["attendance_logs"].count_documents({"students.student_id": student_id})
+
+        # Aggregate attendance stats
+        pipeline = [
+            {"$match": {"students.student_id": student_id}},
+            {"$unwind": "$students"},
+            {"$match": {"students.student_id": student_id}},
+            {"$group": {
+                "_id": None,
+                "total_records": {"$sum": 1},
+                "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
+                "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}},
+                "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
+            }},
+        ]
+        agg = list(db["attendance_logs"].aggregate(pipeline))
+
+        total_records = agg[0]["total_records"] if agg else 0
+        present = agg[0]["present"] if agg else 0
+        absent = agg[0]["absent"] if agg else 0
+        late = agg[0]["late"] if agg else 0
+
+        attendance_rate = round((present / total_records) * 100, 2) if total_records else 0
+
+        return jsonify({
+            "totalClasses": total_classes,
+            "totalSessions": total_sessions,
+            "attendanceRate": attendance_rate,
+            "present": present,
+            "absent": absent,
+            "late": late,
+            "totalLate": late,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ✅ Attendance Trend (daily)
+@student_bp.route("/<string:student_id>/overview/attendance-trend", methods=["GET"])
+@jwt_required()
+def student_attendance_trend(student_id):
+    try:
+        pipeline = [
+            {"$match": {"students.student_id": student_id}},
+            {"$unwind": "$students"},
+            {"$match": {"students.student_id": student_id}},
+            {"$group": {
+                "_id": "$date",
+                "rate": {"$avg": {"$cond": [{"$eq": ["$students.status", "Present"]}, 100, 0]}}
+            }},
+            {"$sort": {"_id": 1}}
+        ]
+        trend = list(db["attendance_logs"].aggregate(pipeline))
+        return jsonify(trend), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ✅ Subject Breakdown
+@student_bp.route("/<string:student_id>/overview/subjects", methods=["GET"])
+@jwt_required()
+def student_subject_breakdown(student_id):
+    try:
+        pipeline = [
+            {"$match": {"students.student_id": student_id}},
+            {"$unwind": "$students"},
+            {"$match": {"students.student_id": student_id}},
+            {"$group": {
+                "_id": {
+                    "subject_code": "$subject_code",
+                    "subject_title": "$subject_title"
+                },
+                "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
+                "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}},
+                "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
+                "total": {"$sum": 1}
+            }},
+            {"$project": {
+                "_id": 0,
+                "subject_code": "$_id.subject_code",
+                "subject_title": "$_id.subject_title",
+                "present": 1,
+                "absent": 1,
+                "late": 1,
+                "rate": {
+                    "$cond": [
+                        {"$eq": ["$total", 0]},
+                        0,
+                        {"$round": [{"$divide": ["$present", "$total"]}, 2]}
+                    ]
+                }
+            }}
+        ]
+        subjects = list(db["attendance_logs"].aggregate(pipeline))
+        return jsonify(subjects), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ✅ Recent Attendance Logs
+@student_bp.route("/<string:student_id>/overview/recent-logs", methods=["GET"])
+@jwt_required()
+def student_recent_logs(student_id):
+    try:
+        logs = list(db["attendance_logs"].find(
+            {"students.student_id": student_id},
+            {"_id": 0, "date": 1, "subject_code": 1, "subject_title": 1, "students": 1}
+        ).sort("date", -1).limit(10))
+
+        results = []
+        for log in logs:
+            for s in log.get("students", []):
+                if s.get("student_id") == student_id:
+                    results.append({
+                        "date": log.get("date"),
+                        "subject_code": log.get("subject_code"),
+                        "subject_title": log.get("subject_title"),
+                        "status": s.get("status"),
+                        "time": s.get("time"),
+                    })
+        return jsonify(results), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
