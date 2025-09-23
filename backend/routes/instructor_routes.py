@@ -287,28 +287,35 @@ def instructor_attendance_trend(instructor_id):
             {"$match": {"instructor_id": instructor_id}},
             {"$unwind": "$students"},
             {"$group": {
-                "_id": "$date",
-                "present": {"$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}},
-                "late": {"$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}},
-                "absent": {"$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}}
+                "_id": "$date",  # group by date string (same as student)
+                "present": {
+                    "$sum": {"$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]}
+                },
+                "late": {
+                    "$sum": {"$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]}
+                },
+                "absent": {
+                    "$sum": {"$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]}
+                }
             }},
             {"$sort": {"_id": 1}}
         ]
+
         trend = list(attendance_collection.aggregate(pipeline))
 
-        # Format nicely for frontend
         formatted = [
             {
-                "date": t["_id"],
-                "present": t["present"],
-                "late": t["late"],
-                "absent": t["absent"]
+                "date": t["_id"],  # keep same key as student
+                "present": t.get("present", 0),
+                "late": t.get("late", 0),
+                "absent": t.get("absent", 0)
             }
             for t in trend
         ]
 
         return jsonify(formatted), 200
     except Exception as e:
+        print(f"❌ Error in instructor_attendance_trend: {e}")
         return jsonify({"error": str(e)}), 500
 
 # ✅ Class Summary for Overview

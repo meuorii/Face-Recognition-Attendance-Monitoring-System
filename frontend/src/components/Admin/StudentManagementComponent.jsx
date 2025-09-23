@@ -1,10 +1,11 @@
+// src/components/Admin/StudentManagementComponent.jsx
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import ViewStudentModal from "./ViewStudentModal";
 import EditStudentModal from "./EditStudentModal";
-import DeleteConfirmationModal from "./DeleteConfirmationModal"; // ✅ new import
+import DeleteConfirmationModal from "./DeleteConfirmationModal";
 
 const StudentManagementComponent = () => {
   const [students, setStudents] = useState([]);
@@ -12,7 +13,6 @@ const StudentManagementComponent = () => {
   const [courseFilter, setCourseFilter] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [recentStudents, setRecentStudents] = useState([]);
-  const [topPerformers, setTopPerformers] = useState([]);
   const [distribution, setDistribution] = useState({});
   const [selectedStudent, setSelectedStudent] = useState(null);
   const navigate = useNavigate();
@@ -31,26 +31,16 @@ const StudentManagementComponent = () => {
         setStudents(data);
         setFilteredStudents(data);
 
-        // Recently registered
+        // Recently registered (last 10)
         const recent = [...data]
-          .sort(
-            (a, b) =>
-              new Date(b.created_at || 0) - new Date(a.created_at || 0)
-          )
+          .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
           .slice(0, 10);
         setRecentStudents(recent);
-
-        // Top performers
-        const top = [...data]
-          .filter((s) => s.attendance_rate !== undefined)
-          .sort((a, b) => b.attendance_rate - a.attendance_rate)
-          .slice(0, 5);
-        setTopPerformers(top);
 
         // Course distribution
         const dist = {};
         data.forEach((s) => {
-          const key = s.course;
+          const key = s.course || "Unassigned";
           dist[key] = (dist[key] || 0) + 1;
         });
         setDistribution(dist);
@@ -75,9 +65,9 @@ const StudentManagementComponent = () => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (s) =>
-          s.first_name.toLowerCase().includes(query) ||
-          s.last_name.toLowerCase().includes(query) ||
-          s.student_id.toString().includes(query)
+          (s.first_name || "").toLowerCase().includes(query) ||
+          (s.last_name || "").toLowerCase().includes(query) ||
+          (s.student_id || "").toLowerCase().includes(query)
       );
     }
 
@@ -174,7 +164,9 @@ const StudentManagementComponent = () => {
     <div className="bg-neutral-900 text-white p-6 rounded-xl shadow-lg space-y-8">
       {/* Header + Filters */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h2 className="text-2xl font-bold text-green-400">Student Management</h2>
+        <h2 className="text-2xl font-bold text-green-400">
+          Student Management
+        </h2>
 
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
@@ -193,8 +185,11 @@ const StudentManagementComponent = () => {
             className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm"
           >
             <option value="">All Courses</option>
-            <option value="BSINFOTECH">BSINFOTECH</option>
-            <option value="BSCS">BSCS</option>
+            {Object.keys(distribution).map((course) => (
+              <option key={course} value={course}>
+                {course}
+              </option>
+            ))}
           </select>
 
           {/* Register */}
@@ -210,7 +205,7 @@ const StudentManagementComponent = () => {
       </div>
 
       {/* Analytics / Insights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Distribution */}
         <div className="bg-neutral-800 rounded-lg p-4 shadow border border-neutral-700">
           <h3 className="text-lg font-semibold text-green-400 mb-3">
@@ -219,11 +214,10 @@ const StudentManagementComponent = () => {
           <div className="flex flex-col gap-2">
             {Object.entries(distribution).map(([key, count], i) => (
               <div key={key} className="flex items-center gap-2">
-                <div
-                  className={`w-4 h-4 rounded ${colors[i % colors.length]}`}
-                />
+                <div className={`w-4 h-4 rounded ${colors[i % colors.length]}`} />
                 <span className="text-sm">
-                  {key} – {count} ({((count / totalStudents) * 100).toFixed(1)}%)
+                  {key} – {count} (
+                  {((count / totalStudents) * 100).toFixed(1)}%)
                 </span>
               </div>
             ))}
@@ -242,32 +236,15 @@ const StudentManagementComponent = () => {
                 className="p-2 bg-neutral-700/50 rounded text-sm flex justify-between"
               >
                 <span>
-                  {s.first_name} {s.last_name}
+                  {s.first_name} {s.last_name}{" "}
+                  <span className="text-neutral-400 text-xs">
+                    ({s.course})
+                  </span>
                 </span>
                 <span className="text-neutral-400 text-xs">
-                  {new Date(s.created_at).toLocaleDateString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Top Performers */}
-        <div className="bg-neutral-800 rounded-lg p-4 shadow border border-neutral-700">
-          <h3 className="text-lg font-semibold text-green-400 mb-3">
-            Top Attendance Performers
-          </h3>
-          <div className="space-y-2">
-            {topPerformers.map((s) => (
-              <div
-                key={s.student_id}
-                className="flex justify-between p-2 bg-neutral-700/50 rounded text-sm"
-              >
-                <span>
-                  {s.first_name} {s.last_name}
-                </span>
-                <span className="text-green-400 font-bold">
-                  {s.attendance_rate}%
+                  {s.created_at
+                    ? new Date(s.created_at).toLocaleString()
+                    : "—"}
                 </span>
               </div>
             ))}
@@ -277,14 +254,12 @@ const StudentManagementComponent = () => {
 
       {/* ✅ Student List */}
       <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg">
-        <div className="hidden md:grid grid-cols-8 bg-neutral-800/80 text-neutral-200 font-semibold text-sm uppercase tracking-wide border-b border-neutral-700">
+        <div className="hidden md:grid grid-cols-6 bg-neutral-800/80 text-neutral-200 font-semibold text-sm uppercase tracking-wide border-b border-neutral-700">
           <div className="px-4 py-3">Student ID</div>
           <div className="px-4 py-3">First Name</div>
           <div className="px-4 py-3">Last Name</div>
           <div className="px-4 py-3">Course</div>
           <div className="px-4 py-3">Attendance</div>
-          <div className="px-4 py-3">Spoof</div>
-          <div className="px-4 py-3">Last Seen</div>
           <div className="px-4 py-3 text-center">Actions</div>
         </div>
 
@@ -295,7 +270,7 @@ const StudentManagementComponent = () => {
               className="border-b border-neutral-800 hover:bg-neutral-800/40 transition"
             >
               {/* Desktop Row */}
-              <div className="hidden md:grid grid-cols-8 text-sm text-neutral-300">
+              <div className="hidden md:grid grid-cols-6 text-sm text-neutral-300">
                 <div className="px-4 py-3 font-mono text-neutral-400">
                   {s.student_id}
                 </div>
@@ -307,11 +282,14 @@ const StudentManagementComponent = () => {
 
                 {/* Attendance */}
                 <div className="px-4 py-3">
-                  {s.attendance_rate !== undefined ? (
+                  {s.attendance_rate !== null &&
+                  s.attendance_rate !== undefined ? (
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
-                        s.attendance_rate < 75
+                        s.attendance_rate < 50
                           ? "bg-red-500/20 text-red-400"
+                          : s.attendance_rate < 75
+                          ? "bg-yellow-500/20 text-yellow-400"
                           : "bg-green-500/20 text-green-400"
                       }`}
                     >
@@ -320,18 +298,6 @@ const StudentManagementComponent = () => {
                   ) : (
                     <span className="text-neutral-500">N/A</span>
                   )}
-                </div>
-
-                {/* Spoof attempts */}
-                <div className="px-4 py-3">
-                  <span className="px-2 py-1 rounded-full text-xs bg-red-500/20 text-red-400">
-                    {s.spoof_attempts || 0}
-                  </span>
-                </div>
-
-                {/* Last seen */}
-                <div className="px-4 py-3 text-neutral-400 text-xs">
-                  {s.last_seen ? new Date(s.last_seen).toLocaleDateString() : "—"}
                 </div>
 
                 {/* Actions */}

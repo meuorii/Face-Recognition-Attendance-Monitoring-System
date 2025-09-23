@@ -1,5 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+// src/components/Admin/AdminOverviewComponent.jsx
+import { useEffect, useState } from "react";
 import axios from "axios";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  CartesianGrid,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  FaUserGraduate,
+  FaChalkboardTeacher,
+  FaBook,
+  FaCalendarCheck,
+  FaChartPie,
+  FaChartBar,
+  FaListAlt,
+  FaUserCircle,
+} from "react-icons/fa";
 
 /** Axios instance */
 const API = axios.create({ baseURL: "http://localhost:5000" });
@@ -18,7 +41,6 @@ export default function AdminOverviewComponent() {
     total_instructors: 0,
     total_classes: 0,
     attendance_today: 0,
-    spoof_attempts_today: 0,
   });
 
   const [distribution, setDistribution] = useState({
@@ -29,7 +51,6 @@ export default function AdminOverviewComponent() {
 
   const [trend, setTrend] = useState([]);
   const [recentLogs, setRecentLogs] = useState([]);
-  const [lastSpoof, setLastSpoof] = useState(null);
   const [lastStudent, setLastStudent] = useState(null);
 
   useEffect(() => {
@@ -37,27 +58,22 @@ export default function AdminOverviewComponent() {
       setLoading(true);
       setErr("");
       try {
-        const [
-          statsRes,
-          distRes,
-          trendRes,
-          recentRes,
-          spoofRes,
-          lastStudRes,
-        ] = await Promise.allSettled([
-          API.get("/api/admin/overview/stats"),
-          API.get("/api/admin/overview/attendance-distribution"),
-          API.get("/api/admin/overview/attendance-trend", { params: { days: 7 } }),
-          API.get("/api/admin/overview/recent-logs", { params: { limit: 5 } }),
-          API.get("/api/admin/overview/last-spoof"),
-          API.get("/api/admin/overview/last-student"),
-        ]);
+        const [statsRes, distRes, trendRes, recentRes, lastStudRes] =
+          await Promise.allSettled([
+            API.get("/api/admin/overview/stats"),
+            API.get("/api/admin/overview/attendance-distribution"),
+            API.get("/api/admin/overview/attendance-trend", { params: { days: 7 } }),
+            API.get("/api/admin/overview/recent-logs", { params: { limit: 5 } }),
+            API.get("/api/admin/overview/last-student"),
+          ]);
 
         if (statsRes.status === "fulfilled") setStats(normalizeStats(statsRes.value.data));
         if (distRes.status === "fulfilled") setDistribution(normalizeDistribution(distRes.value.data));
-        if (trendRes.status === "fulfilled") setTrend(Array.isArray(trendRes.value.data) ? trendRes.value.data : []);
+        if (trendRes.status === "fulfilled") {
+          const tdata = trendRes.value.data.trend || trendRes.value.data;
+          setTrend(Array.isArray(tdata) ? tdata : []);
+        }
         if (recentRes.status === "fulfilled") setRecentLogs(Array.isArray(recentRes.value.data) ? recentRes.value.data : []);
-        if (spoofRes.status === "fulfilled") setLastSpoof(spoofRes.value.data || null);
         if (lastStudRes.status === "fulfilled") setLastStudent(lastStudRes.value.data || null);
       } catch (e) {
         setErr(e?.response?.data?.error || "Failed to load overview.");
@@ -67,93 +83,85 @@ export default function AdminOverviewComponent() {
     })();
   }, []);
 
-  const totalDist = Math.max(
-    1,
-    (distribution.present || 0) + (distribution.late || 0) + (distribution.absent || 0)
-  );
-
-  const trendMax = useMemo(
-    () => Math.max(1, ...trend.map((t) => Number(t?.count) || 0)),
-    [trend]
-  );
+  const COLORS = ["#22c55e", "#eab308", "#ef4444"];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {/* ✅ Header */}
       <div className="text-center md:text-left">
-        <h1 className="text-2xl md:text-3xl font-bold text-green-400">
-          Admin Dashboard Overview
+        <h1 className="text-3xl font-extrabold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent flex items-center gap-2">
+           Admin Dashboard Overview
         </h1>
         <p className="text-neutral-400 text-sm mt-1">
-          A summary of students, instructors, attendance, and recent activities.
+          Monitor student, instructor, and class activities in real-time.
         </p>
       </div>
 
       {/* ✅ Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <StatCard label="Total Students" value={stats.total_students} />
-        <StatCard label="Total Instructors" value={stats.total_instructors} />
-        <StatCard label="Classes / Subjects" value={stats.total_classes} />
-        <StatCard label="Attendance Today" value={stats.attendance_today} />
-        <StatCard label="Spoof Attempts" value={stats.spoof_attempts_today} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={<FaUserGraduate />} label="Total Students" value={stats.total_students} />
+        <StatCard icon={<FaChalkboardTeacher />} label="Instructors" value={stats.total_instructors} />
+        <StatCard icon={<FaBook />} label="Classes" value={stats.total_classes} />
+        <StatCard icon={<FaCalendarCheck />} label="Attendance Today" value={stats.attendance_today} />
       </div>
 
-      {/* ✅ Charts row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Distribution */}
+      {/* ✅ Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-          <h3 className="font-semibold text-lg mb-4">Attendance Distribution</h3>
-          <div className="flex items-center justify-center">
-            <div
-              className="w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 lg:w-44 lg:h-44 rounded-full shadow-inner border border-neutral-700"
-              style={{
-                background: `conic-gradient(
-                  #22c55e 0% ${(distribution.present / totalDist) * 100}%,
-                  #eab308 ${(distribution.present / totalDist) * 100}% ${
-                    ((distribution.present + distribution.late) / totalDist) * 100
-                  }%,
-                  #dc2626 ${((distribution.present + distribution.late) / totalDist) * 100}% 100%
-                )`,
-              }}
-            />
-          </div>
-          <div className="flex flex-wrap justify-center gap-6 text-xs sm:text-sm text-neutral-300 mt-4">
-            <Legend color="bg-green-600" label="Present" value={distribution.present} />
-            <Legend color="bg-yellow-500" label="Late" value={distribution.late} />
-            <Legend color="bg-red-600" label="Absent" value={distribution.absent} />
-          </div>
+          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-green-400">
+            <FaChartPie /> Attendance Distribution
+          </h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={[
+                  { name: "Present", value: distribution.present },
+                  { name: "Late", value: distribution.late },
+                  { name: "Absent", value: distribution.absent },
+                ]}
+                cx="50%"
+                cy="50%"
+                outerRadius={90}
+                label
+                dataKey="value"
+              >
+                {["Present", "Late", "Absent"].map((entry, idx) => (
+                  <Cell key={`cell-${idx}`} fill={COLORS[idx]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
         </Card>
 
-        {/* Trend */}
-        <Card className="md:col-span-1 lg:col-span-2">
-          <h3 className="font-semibold text-lg mb-4">Attendance Trend (7 Days)</h3>
-          <div className="flex items-end gap-2 h-36 sm:h-44">
-            {trend.length === 0 ? (
-              <div className="text-neutral-500 text-sm">No data</div>
-            ) : (
-              trend.map((t) => (
-                <div key={t.date} className="flex flex-col items-center flex-1">
-                  <div
-                    className="w-full bg-green-600 rounded-t"
-                    style={{ height: `${(Number(t.count || 0) / trendMax) * 100}%` }}
-                    title={`${t.date}: ${t.count}`}
-                  />
-                  <div className="mt-2 text-[10px] sm:text-[11px] text-neutral-400">
-                    {formatDay(t.date)}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+        <Card>
+          <h3 className="font-semibold text-lg mb-4 flex items-center gap-2 text-green-400">
+            <FaChartBar /> Attendance Trend (7 Days)
+          </h3>
+          {trend.length === 0 ? (
+            <div className="text-neutral-500 text-sm">No data available</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={trend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="date" tick={{ fill: "#9CA3AF" }} />
+                <YAxis tick={{ fill: "#9CA3AF" }} />
+                <Tooltip />
+                <Bar dataKey="count" fill="#22c55e" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </Card>
       </div>
 
-      {/* ✅ Recent + Side panels */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        <Card className="md:col-span-2 xl:col-span-2">
+      {/* ✅ Recent Logs + Last Student */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Recent Attendance Logs</h3>
-            <span className="text-xs text-neutral-400">Last 5</span>
+            <h3 className="font-semibold text-lg flex items-center gap-2 text-green-400">
+              <FaListAlt /> Recent Attendance Logs
+            </h3>
+            <span className="text-xs text-neutral-400">Last 5 Records</span>
           </div>
           <Table
             columns={["Student", "Subject", "Status", "Timestamp"]}
@@ -166,37 +174,27 @@ export default function AdminOverviewComponent() {
           />
         </Card>
 
-        <div className="space-y-6">
-          <Card>
-            <h3 className="font-semibold text-lg mb-3">Last Spoof Attempt</h3>
-            {lastSpoof ? (
-              <ul className="text-sm text-neutral-300 space-y-1">
-                <li><span className="text-neutral-400">Student:</span> {formatName(lastSpoof.student)}</li>
-                <li><span className="text-neutral-400">Subject:</span> {lastSpoof.subject || "-"}</li>
-                <li><span className="text-neutral-400">Reason:</span> {lastSpoof.reason || "-"}</li>
-                <li><span className="text-neutral-400">Detected:</span> {formatDateTime(lastSpoof.detected_at)}</li>
-              </ul>
-            ) : (
-              <div className="text-neutral-500 text-sm">No spoof attempts.</div>
-            )}
-          </Card>
-
-          <Card>
-            <h3 className="font-semibold text-lg mb-3">Last Student Registered</h3>
-            {lastStudent ? (
-              <ul className="text-sm text-neutral-300 space-y-1">
-                <li><span className="text-neutral-400">Name:</span> {formatName(lastStudent)}</li>
-                <li><span className="text-neutral-400">ID:</span> {lastStudent.student_id || "-"}</li>
-                <li><span className="text-neutral-400">Registered:</span> {formatDateTime(lastStudent.created_at)}</li>
-              </ul>
-            ) : (
-              <div className="text-neutral-500 text-sm">No recent registration.</div>
-            )}
-          </Card>
-        </div>
+        <Card>
+          <h3 className="font-semibold text-lg mb-3 flex items-center gap-2 text-green-400">
+            Last Student Registered
+          </h3>
+          {lastStudent ? (
+            <div className="bg-neutral-900 p-5 rounded-lg shadow-inner flex items-center gap-4">
+              <FaUserCircle className="text-5xl text-green-400" />
+              <div>
+                <p className="text-lg font-bold text-green-400">{formatName(lastStudent)}</p>
+                <p className="text-sm text-neutral-300">ID: {lastStudent.student_id || "-"}</p>
+                <p className="text-xs text-neutral-400 mt-1">
+                  Registered: {formatDateTime(lastStudent.created_at)}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-neutral-500 text-sm">No recent registration.</div>
+          )}
+        </Card>
       </div>
 
-      {/* ✅ Status */}
       {loading && <div className="text-neutral-400 text-sm">Loading overview…</div>}
       {err && <div className="text-red-400 text-sm">{err}</div>}
     </div>
@@ -204,14 +202,12 @@ export default function AdminOverviewComponent() {
 }
 
 /* ============== helpers ============== */
-
 function normalizeStats(s = {}) {
   return {
     total_students: s.total_students ?? 0,
     total_instructors: s.total_instructors ?? 0,
     total_classes: s.total_classes ?? 0,
     attendance_today: s.attendance_today ?? 0,
-    spoof_attempts_today: s.spoof_attempts_today ?? 0,
   };
 }
 
@@ -225,28 +221,21 @@ function normalizeDistribution(d = {}) {
 
 function Card({ children, className = "" }) {
   return (
-    <div className={`rounded-xl bg-neutral-800 border border-neutral-700 p-5 shadow-lg ${className}`}>
+    <div
+      className={`rounded-xl bg-neutral-800 border border-neutral-700 p-5 shadow-lg hover:shadow-green-500/10 transition ${className}`}
+    >
       {children}
     </div>
   );
 }
 
-function StatCard({ label, value }) {
+function StatCard({ icon, label, value }) {
   return (
-    <Card>
+    <Card className="flex flex-col items-center justify-center text-center hover:scale-105 transition-transform">
+      <div className="text-3xl mb-2 text-green-400">{icon}</div>
       <p className="text-sm text-neutral-400">{label}</p>
-      <p className="text-2xl font-bold text-green-400">{value ?? 0}</p>
+      <p className="text-2xl font-extrabold text-white">{value ?? 0}</p>
     </Card>
-  );
-}
-
-function Legend({ color, label, value }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className={`inline-block w-3 h-3 rounded ${color}`} />
-      <span className="text-neutral-400">{label}:</span>
-      <span className="text-neutral-200">{value ?? 0}</span>
-    </div>
   );
 }
 
@@ -257,7 +246,7 @@ function Table({ columns = [], rows = [] }) {
         <thead className="bg-neutral-900 text-neutral-300">
           <tr>
             {columns.map((c) => (
-              <th key={c} className="px-3 py-2 text-left font-medium">{c}</th>
+              <th key={c} className="px-4 py-3 text-left font-medium">{c}</th>
             ))}
           </tr>
         </thead>
@@ -270,9 +259,12 @@ function Table({ columns = [], rows = [] }) {
             </tr>
           ) : (
             rows.map((r, i) => (
-              <tr key={i} className="border-t border-neutral-800 hover:bg-neutral-900/50">
+              <tr
+                key={i}
+                className={`border-t border-neutral-800 hover:bg-neutral-900/70 transition ${i % 2 === 0 ? "bg-neutral-800/40" : ""}`}
+              >
                 {columns.map((c) => (
-                  <td key={c} className="px-3 py-2 align-top">{r[c]}</td>
+                  <td key={c} className="px-4 py-3 align-top">{r[c]}</td>
                 ))}
               </tr>
             ))
@@ -292,7 +284,7 @@ function badge(status) {
   };
   const cls = map[s] || "bg-neutral-700/40 text-neutral-300 border-neutral-600/40";
   return (
-    <span className={`px-2 py-1 rounded-md text-xs border inline-block ${cls}`}>
+    <span className={`px-2 py-1 rounded-md text-xs border inline-block font-medium ${cls}`}>
       {status || "-"}
     </span>
   );
@@ -310,15 +302,8 @@ function formatDateTime(dt) {
   if (!dt) return "-";
   try {
     const d = new Date(dt);
-    return d.toLocaleString();
+    return d.toLocaleString("en-PH", { timeZone: "Asia/Manila" });
   } catch {
     return dt;
   }
-}
-
-function formatDay(yyyy_mm_dd) {
-  if (!yyyy_mm_dd) return "";
-  const d = new Date(yyyy_mm_dd);
-  if (isNaN(d.getTime())) return yyyy_mm_dd;
-  return d.toLocaleDateString(undefined, { weekday: "short" });
 }

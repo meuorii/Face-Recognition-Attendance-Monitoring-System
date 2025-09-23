@@ -7,7 +7,6 @@ import {
   FaChartLine,
   FaClipboardList,
   FaCheckCircle,
-  FaTimesCircle,
   FaClock,
 } from "react-icons/fa";
 import {
@@ -34,7 +33,7 @@ const InstructorOverview = () => {
   const instructor = JSON.parse(localStorage.getItem("userData"));
   const token = localStorage.getItem("token");
 
-  const COLORS = ["#22c55e", "#facc15", "#ef4444"]; // ✅ green, yellow, red
+  const COLORS = ["#22c55e", "#facc15", "#ef4444"]; // green, yellow, red
 
   useEffect(() => {
     if (!instructor?.instructor_id || !token) {
@@ -64,7 +63,17 @@ const InstructorOverview = () => {
         ]);
 
         setOverviewData(overviewRes.data);
-        setAttendanceTrend(trendRes.data);
+
+        // 🔹 Use raw trend data directly (present, late, absent counts per day)
+        const rawTrend = trendRes.data || [];
+        const formattedTrend = rawTrend.map((t) => ({
+          date: t.date, // backend already provides date
+          present: t.present || 0,
+          late: t.late || 0,
+          absent: t.absent || 0,
+        }));
+        setAttendanceTrend(formattedTrend);
+
         setClassSummary(classRes.data);
       } catch (err) {
         console.error(
@@ -174,14 +183,29 @@ const InstructorOverview = () => {
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={attendanceTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="_id" stroke="#888" />
+              <XAxis dataKey="date" stroke="#888" />
               <YAxis stroke="#888" />
               <Tooltip />
               <Line
                 type="monotone"
-                dataKey="rate"
+                dataKey="present"
                 stroke="#22c55e"
                 strokeWidth={2}
+                name="Present"
+              />
+              <Line
+                type="monotone"
+                dataKey="late"
+                stroke="#facc15"
+                strokeWidth={2}
+                name="Late"
+              />
+              <Line
+                type="monotone"
+                dataKey="absent"
+                stroke="#ef4444"
+                strokeWidth={2}
+                name="Absent"
               />
             </LineChart>
           </ResponsiveContainer>

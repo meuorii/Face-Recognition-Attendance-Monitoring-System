@@ -25,7 +25,7 @@ const AdminLoginComponent = () => {
         toast.success("Login successful!");
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("userType", "admin");
-        localStorage.setItem("userData", JSON.stringify(res.data));
+        localStorage.setItem("userData", JSON.stringify(res.data.admin));
 
         navigate("/admin/dashboard"); // ✅ redirect after login
       }

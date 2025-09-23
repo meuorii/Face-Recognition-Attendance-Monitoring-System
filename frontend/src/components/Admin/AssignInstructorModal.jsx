@@ -12,17 +12,26 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
   }, []);
 
   const fetchClasses = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/classes", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setClasses(res.data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error("❌ Failed to load classes");
-    }
-  };
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get("http://localhost:5000/api/classes", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const data = res.data || [];
+    setClasses(data);
+
+    // ✅ Preselect classes where this instructor is already assigned
+    const alreadyAssigned = data
+      .filter((cls) => cls.instructor_id === instructor.instructor_id)
+      .map((cls) => cls._id);
+
+    setSelectedClasses(alreadyAssigned);
+  } catch (err) {
+    console.error(err);
+    toast.error("❌ Failed to load classes");
+  }
+};
 
   const toggleClassSelection = (classId) => {
     if (selectedClasses.includes(classId)) {
@@ -100,7 +109,7 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
                   type="checkbox"
                   checked={selectedClasses.includes(cls._id)}
                   onChange={() => toggleClassSelection(cls._id)}
-                  className="form-checkbox h-4 w-4 text-green-500 rounded focus:ring-green-400"
+                  className="h-4 w-4 accent-green-500 rounded focus:ring-green-400"
                 />
                 <div className="flex flex-col">
                   <span className="text-white font-medium flex items-center gap-2">
