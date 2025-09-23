@@ -137,7 +137,7 @@ const StudentOverview = () => {
     <div className="p-6 bg-neutral-900 min-h-screen rounded-xl text-white">
       {/* Header */}
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-green-400">
-        <FaUserGraduate /> Welcome, {student.first_name} {student.last_name}
+        <FaUserGraduate /> Student Overview
       </h2>
 
       {/* Stat Cards */}

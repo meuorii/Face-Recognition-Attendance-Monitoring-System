@@ -1,10 +1,17 @@
 // src/components/Instructor/DailyLogsModal.jsx
-import { FaCheckCircle, FaTimesCircle, FaClock, FaCalendarAlt } from "react-icons/fa";
+import { FaCheckCircle, FaTimesCircle, FaClock, FaCalendarAlt, FaFilePdf } from "react-icons/fa";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
-const DailyLogsModal = ({ student }) => {
+const DailyLogsModal = ({ student, startDate, endDate, statusFilter }) => {
   if (!student) return null;
 
-  const logs = student.records || student.statuses || [];
+  const logs = (student.records || student.statuses || []).filter(
+    (s) =>
+      (statusFilter === "All" || s.status === statusFilter) &&
+      (!startDate || new Date(s.date) >= new Date(startDate)) &&
+      (!endDate || new Date(s.date) <= new Date(endDate))
+  );
 
   const totalLogs = logs.length;
   const presentCount = logs.filter((s) => s.status === "Present").length;
@@ -27,7 +34,7 @@ const DailyLogsModal = ({ student }) => {
   const formatDate = (dateStr) => {
     if (!dateStr) return "N/A";
     const dateObj = new Date(dateStr);
-    if (isNaN(dateObj.getTime())) return dateStr; // fallback if invalid
+    if (isNaN(dateObj.getTime())) return dateStr;
     return dateObj.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -35,20 +42,107 @@ const DailyLogsModal = ({ student }) => {
     });
   };
 
+  // ✅ Export Student Logs to PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF("p", "mm", "a4");
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Logos
+    doc.addImage("/ccit-logo.png", "PNG", 15, 10, 25, 25);
+    doc.addImage("/prmsu.png", "PNG", pageWidth - 40, 10, 25, 25);
+
+    // University Info
+    doc.setFont("times", "bold");
+    doc.setFontSize(14);
+    doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
+    doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, { align: "center" });
+
+    doc.setFont("times", "italic");
+    doc.setFontSize(11);
+    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, { align: "center" });
+    doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
+
+    doc.setFont("times", "bold");
+    doc.setFontSize(12);
+    doc.text(
+      "COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY",
+      pageWidth / 2,
+      45,
+      { align: "center" }
+    );
+
+    // Title
+    doc.setFontSize(14);
+    doc.setTextColor(34, 197, 94);
+    doc.text("DAILY ATTENDANCE LOGS", pageWidth / 2, 55, { align: "center" });
+
+    // Student Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont("times", "normal");
+    doc.text(`Student: ${student.first_name} ${student.last_name}`, 20, 65);
+    doc.text(`Student ID: ${student.student_id}`, 20, 72);
+
+    // Filters Info
+    let filterLine = `Status: ${statusFilter}`;
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate).toLocaleDateString() : "—";
+      const end = endDate ? new Date(endDate).toLocaleDateString() : "—";
+      filterLine += ` | Date Range: ${start} - ${end}`;
+    }
+    doc.setFontSize(11);
+    doc.setFont("times", "italic");
+    doc.text(filterLine, 20, 80);
+
+    // Table
+    autoTable(doc, {
+      startY: 90,
+      head: [["Date", "Subject", "Status", "Time"]],
+      body: logs.map((log) => [
+        formatDate(log.date),
+        `${log.subject_code || ""} ${log.subject_title || ""}`.trim() || "—",
+        log.status,
+        formatTime(log.time),
+      ]),
+      styles: {
+        font: "helvetica",
+        fontSize: 10,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [34, 197, 94],
+        textColor: [255, 255, 255],
+        halign: "center",
+      },
+      bodyStyles: { halign: "center" },
+      alternateRowStyles: { fillColor: [240, 255, 240] },
+    });
+
+    doc.save(`attendance_logs_${student.student_id}.pdf`);
+  };
+
   return (
     <div className="w-full">
       {/* Header */}
-      <div className="mb-6 border-b border-neutral-700 pb-3">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <FaCalendarAlt className="text-green-400" />
-          Daily Attendance Logs
-        </h2>
-        <p className="text-gray-400 text-sm mt-1">
-          Showing all attendance records for{" "}
-          <span className="text-green-400 font-semibold">
-            {student.first_name} {student.last_name}
-          </span>
-        </p>
+      <div className="mb-6 border-b border-neutral-700 pb-3 flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <FaCalendarAlt className="text-green-400" />
+            Daily Attendance Logs
+          </h2>
+          <p className="text-gray-400 text-sm mt-1">
+            Showing all attendance records for{" "}
+            <span className="text-green-400 font-semibold">
+              {student.first_name} {student.last_name}
+            </span>
+          </p>
+        </div>
+        <button
+          onClick={exportToPDF}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm shadow transition"
+        >
+          <FaFilePdf /> Export PDF
+        </button>
       </div>
 
       {/* Stats */}

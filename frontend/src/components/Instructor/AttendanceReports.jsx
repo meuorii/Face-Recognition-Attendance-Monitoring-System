@@ -27,7 +27,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useModal } from "./ModalManager"; // ✅ use global modal context
+import { useModal } from "./ModalManager";
 import DailyLogsModal from "./DailyLogsModal";
 
 const COLORS = ["#22c55e", "#ef4444", "#facc15"]; // green, red, yellow
@@ -44,13 +44,13 @@ const AttendanceReport = () => {
 
   const instructor = JSON.parse(localStorage.getItem("userData"));
   const token = localStorage.getItem("token");
-  const { openModal } = useModal(); // ✅ use modal manager
+  const { openModal } = useModal();
 
   // Load classes + all logs on mount
   useEffect(() => {
     if (instructor?.instructor_id && token) {
       fetchClasses();
-      fetchLogs(); // load all logs initially
+      fetchLogs();
     } else {
       toast.error("No instructor data found. Please log in again.");
     }
@@ -83,7 +83,7 @@ const AttendanceReport = () => {
         data = await getAttendanceReportAll(from, to);
       }
 
-      // Group logs by student_id
+      // Group logs by student
       const grouped = {};
       data.forEach((log) => {
         const sid = log.student_id;
@@ -110,7 +110,7 @@ const AttendanceReport = () => {
           status: log.status,
           time: log.time,
           subject_code: log.subject_code || null,
-          subject_title: log.subject_title || null
+          subject_title: log.subject_title || null,
         });
       });
 
@@ -130,45 +130,117 @@ const AttendanceReport = () => {
   }, [selectedClass]);
 
   const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Attendance Report", 14, 15);
-    autoTable(doc, {
-      startY: 25,
-      head: [["Student ID", "Name", "Present", "Absent", "Late", "Total"]],
-      body: logs.map((log) => [
-        log.student_id,
-        `${log.first_name} ${log.last_name}`,
-        log.present,
-        log.absent,
-        log.late,
-        log.total_attendances,
-      ]),
-    });
-    doc.save("attendance_report.pdf");
-  };
+  const doc = new jsPDF("p", "mm", "a4");
+  const pageWidth = doc.internal.pageSize.getWidth();
 
- // Summary stats
+  // Left logo
+  doc.addImage("/ccit-logo.png", "PNG", 15, 10, 25, 25);
+
+  // Right logo
+  doc.addImage("/prmsu.png", "PNG", pageWidth - 40, 10, 25, 25);
+
+  // University title
+  doc.setFont("times", "bold");
+  doc.setFontSize(14);
+  doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
+  doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, { align: "center" });
+
+  doc.setFont("times", "italic");
+  doc.setFontSize(11);
+  doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, { align: "center" });
+  doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
+
+  doc.setFont("times", "bold");
+  doc.setFontSize(12);
+  doc.text(
+    "COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY",
+    pageWidth / 2,
+    45,
+    { align: "center" }
+  );
+
+  // Report Title
+  doc.setFontSize(14);
+  doc.setTextColor(34, 197, 94);
+  doc.text("ATTENDANCE REPORT", pageWidth / 2, 55, { align: "center" });
+
+  // ✅ Class Info
+  const selected = classes.find((c) => (c.class_id || c._id) === selectedClass);
+  // ✅ Class Info (Combined Subject Code + Title)
+  if (selected) {
+    doc.setFont("times", "normal");
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.text(
+      `Subject: ${selected.subject_code} – ${selected.subject_title}`,
+      20,
+      65
+    );
+  }
+
+  // ✅ Date Filters
+  if (startDate || endDate) {
+    const start = startDate
+      ? new Date(startDate).toLocaleDateString()
+      : "—";
+    const end = endDate ? new Date(endDate).toLocaleDateString() : "—";
+
+    doc.setFont("times", "italic");
+    doc.setFontSize(11);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Date Range: ${start} to ${end}`, 20, 80);
+  }
+
+  // --- Attendance Table ---
+  autoTable(doc, {
+    startY: startDate || endDate ? 88 : 80, // shift table down if filter is shown
+    head: [["Student ID", "Name", "Present", "Absent", "Late", "Total"]],
+    body: logs.map((log) => [
+      log.student_id,
+      `${log.first_name} ${log.last_name}`,
+      log.present,
+      log.absent,
+      log.late,
+      log.total_attendances,
+    ]),
+    styles: {
+      font: "helvetica",
+      fontSize: 10,
+      cellPadding: 3,
+      lineColor: [34, 197, 94],
+      lineWidth: 0.2,
+    },
+    headStyles: {
+      fillColor: [34, 197, 94],
+      textColor: [255, 255, 255],
+      halign: "center",
+    },
+    bodyStyles: {
+      halign: "center",
+    },
+    alternateRowStyles: {
+      fillColor: [240, 255, 240],
+    },
+  });
+
+  doc.save("attendance_report.pdf");
+};
+
+
+  // --- Summary Stats ---
   const totalStudents = logs.length;
   const totalSessions = logs.reduce(
     (sum, log) => Math.max(sum, log.statuses.length),
     0
   );
-  const totalRecords = logs.reduce(
-    (sum, log) => sum + log.total_attendances,
-    0
-  );
-
-  // ✅ Count both Present + Late as attended
-  const totalAttended = logs.reduce(
-    (sum, log) => sum + log.present + log.late,
-    0
-  );
+  const totalRecords = logs.reduce((sum, log) => sum + log.total_attendances, 0);
+  const totalAttended = logs.reduce((sum, log) => sum + log.present + log.late, 0);
 
   const attendanceRate = totalRecords
     ? ((totalAttended / totalRecords) * 100).toFixed(2)
     : 0;
 
-  // Chart data
+  // --- Charts ---
   const pieData = [
     { name: "Present", value: logs.reduce((sum, log) => sum + log.present, 0) },
     { name: "Absent", value: logs.reduce((sum, log) => sum + log.absent, 0) },
@@ -275,13 +347,7 @@ const AttendanceReport = () => {
           </h3>
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={100}
-                label
-              >
+              <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={100} label>
                 {pieData.map((_, index) => (
                   <Cell key={index} fill={COLORS[index % COLORS.length]} />
                 ))}
@@ -340,21 +406,21 @@ const AttendanceReport = () => {
                       <td className="font-medium text-white">
                         {`${log.first_name} ${log.last_name}`}
                       </td>
-                      <td className="text-green-400 font-semibold">
-                        {log.present}
-                      </td>
-                      <td className="text-red-400 font-semibold">
-                        {log.absent}
-                      </td>
-                      <td className="text-yellow-400 font-semibold">
-                        {log.late}
-                      </td>
+                      <td className="text-green-400 font-semibold">{log.present}</td>
+                      <td className="text-red-400 font-semibold">{log.absent}</td>
+                      <td className="text-yellow-400 font-semibold">{log.late}</td>
                       <td className="text-white">{log.total_attendances}</td>
                       <td>
                         <button
                           onClick={() =>
                             openModal(
-                              <DailyLogsModal student={log} />
+                              <DailyLogsModal
+                                student={log}
+                                startDate={startDate}
+                                endDate={endDate}
+                                statusFilter={statusFilter}
+                                selectedClass={classes.find((c) => (c.class_id || c._id) === selectedClass)}
+                              />
                             )
                           }
                           className="text-sm text-green-400 hover:underline flex items-center gap-1"
@@ -380,9 +446,7 @@ const AttendanceReport = () => {
         </>
       ) : (
         <p className="text-gray-400 text-center mt-6">
-          {loadingLogs
-            ? "Loading attendance logs..."
-            : "No attendance records found."}
+          {loadingLogs ? "Loading attendance logs..." : "No attendance records found."}
         </p>
       )}
     </div>
