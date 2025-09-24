@@ -7,6 +7,7 @@ import StudentManagementComponent from "../components/Admin/StudentManagementCom
 import InstructorAssignmentComponent from "../components/Admin/InstructorAssignmentComponent";
 import ClassManagementComponent from "../components/Admin/ClassManagementComponent";
 import SubjectManagementComponent from "../components/Admin/SubjectManagementComponent";
+import AttendanceMonitoringComponent from "../components/Admin/AttendanceMonitoringComponent";
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
@@ -95,11 +96,7 @@ const AdminDashboard = () => {
           {activeTab === "instructors" && <InstructorAssignmentComponent />}
           {activeTab === "classes" && <ClassManagementComponent />}
           {activeTab === "subjects" && <SubjectManagementComponent />}
-          {activeTab === "attendance" && (
-            <div className="text-neutral-400">
-              Attendance Monitoring coming soon...
-            </div>
-          )}
+          {activeTab === "attendance" && <AttendanceMonitoringComponent />}
         </main>
       </div>
     </div>

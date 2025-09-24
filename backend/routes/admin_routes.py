@@ -467,13 +467,50 @@ def delete_subject(id):
         return jsonify({"error": "Subject not found"}), 404
     return jsonify({"message": "Subject deleted successfully"}), 200
 
+
 # ==============================
 # ✅ Class Management
 # ==============================
 @admin_bp.route("/api/classes", methods=["GET"])
 def get_all_classes():
     classes = list(classes_col.find().sort("created_at", -1))
-    return jsonify([_serialize_class(c) for c in classes]), 200
+    output = []
+
+    for cls in classes:
+        class_id = str(cls["_id"])
+
+        # 🔹 Compute attendance stats
+        stats = list(
+            attendance_logs_col.aggregate([
+                {"$match": {"class_id": class_id}},
+                {"$unwind": "$students"},
+                {"$group": {
+                    "_id": "$students.status",
+                    "count": {"$sum": 1}
+                }}
+            ])
+        )
+
+        total_logs = sum(s["count"] for s in stats)
+        present_count = sum(s["count"] for s in stats if s["_id"] == "Present")
+        late_count = sum(s["count"] for s in stats if s["_id"] == "Late")
+        absent_count = sum(s["count"] for s in stats if s["_id"] == "Absent")
+
+        attendance_rate = round(((present_count + late_count) / total_logs) * 100, 2) if total_logs > 0 else 0
+
+        cls_data = _serialize_class(cls)
+        cls_data["attendance_rate"] = attendance_rate
+        cls_data["attendance_breakdown"] = {
+            "present": present_count,
+            "late": late_count,
+            "absent": absent_count,
+            "total": total_logs
+        }
+
+        output.append(cls_data)
+
+    return jsonify(output), 200
+
 
 @admin_bp.route("/api/classes/<id>", methods=["GET"])
 def get_class(id):
@@ -483,7 +520,38 @@ def get_class(id):
         return jsonify({"error": "Invalid class ID"}), 400
     if not cls:
         return jsonify({"error": "Class not found"}), 404
-    return jsonify(_serialize_class(cls)), 200
+
+    # 🔹 Compute attendance stats for this class
+    class_id = str(cls["_id"])
+    stats = list(
+        attendance_logs_col.aggregate([
+            {"$match": {"class_id": class_id}},
+            {"$unwind": "$students"},
+            {"$group": {
+                "_id": "$students.status",
+                "count": {"$sum": 1}
+            }}
+        ])
+    )
+
+    total_logs = sum(s["count"] for s in stats)
+    present_count = sum(s["count"] for s in stats if s["_id"] == "Present")
+    late_count = sum(s["count"] for s in stats if s["_id"] == "Late")
+    absent_count = sum(s["count"] for s in stats if s["_id"] == "Absent")
+
+    attendance_rate = round(((present_count + late_count) / total_logs) * 100, 2) if total_logs > 0 else 0
+
+    cls_data = _serialize_class(cls)
+    cls_data["attendance_rate"] = attendance_rate
+    cls_data["attendance_breakdown"] = {
+        "present": present_count,
+        "late": late_count,
+        "absent": absent_count,
+        "total": total_logs
+    }
+
+    return jsonify(cls_data), 200
+
 
 @admin_bp.route("/api/classes/<id>", methods=["PUT"])
 def update_class(id):
@@ -510,6 +578,7 @@ def update_class(id):
         return jsonify({"error": "Class not found"}), 404
     return jsonify({"message": "Class updated successfully"}), 200
 
+
 @admin_bp.route("/api/classes/<id>", methods=["DELETE"])
 def delete_class(id):
     try:
@@ -519,6 +588,7 @@ def delete_class(id):
     if result.deleted_count == 0:
         return jsonify({"error": "Class not found"}), 404
     return jsonify({"message": "Class deleted successfully"}), 200
+
 
 # ==============================
 # ✅ Instructor Management
@@ -582,3 +652,41 @@ def assign_instructor_to_class(class_id):
             },
         }
     ), 200
+
+# ==============================
+# ✅ Attendance Logs (Admin)
+# ==============================
+@admin_bp.route("/api/attendance/logs", methods=["GET"])
+def get_attendance_logs():
+    logs = []
+
+    cursor = attendance_logs_col.find().sort("date", -1)
+    for doc in cursor:
+        class_id = str(doc.get("class_id"))
+        subject_code = doc.get("subject_code", "")
+        subject_title = doc.get("subject_title", "")
+        instructor_first_name = doc.get("instructor_first_name", "")
+        instructor_last_name = doc.get("instructor_last_name", "")
+        section = doc.get("section", "")
+        course = doc.get("course", "") 
+        date = doc.get("date")
+
+        # Flatten each student log
+        for st in doc.get("students", []):
+            logs.append({
+                "student_id": st.get("student_id"),
+                "first_name": st.get("first_name"),
+                "last_name": st.get("last_name"),
+                "status": st.get("status"),
+                "time": st.get("time"),
+                "date": date,
+                "subject_code": subject_code,
+                "subject_title": subject_title,
+                "instructor_name": f"{instructor_first_name} {instructor_last_name}".strip(),
+                "section": section,
+                "course": course,  
+                "class_id": class_id,
+            })
+
+    return jsonify(logs), 200
+
