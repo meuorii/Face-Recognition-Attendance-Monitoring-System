@@ -1,106 +1,232 @@
 import { useEffect, useState } from "react";
 import AOS from "aos";
 import "aos/dist/aos.css";
-import { FaUserCheck, FaShieldAlt, FaChartLine, FaEye, FaArrowRight } from "react-icons/fa";
+import {
+  FaUserShield,
+  FaUsers,
+  FaChalkboardTeacher,
+  FaLaptopCode,
+  FaCamera,
+  FaRobot,
+  FaFingerprint,
+  FaRegFileAlt,
+  FaUserFriends,
+  FaLock,
+  FaUserTie,
+  FaChalkboard,
+  FaUserGraduate,
+  FaMicrochip,
+} from "react-icons/fa";
 
 function FeaturesSection() {
+  const [activeTab, setActiveTab] = useState("admin");
+
   useEffect(() => {
-    AOS.init({ duration: 1000, once: true }); // Initialize AOS animations
+    AOS.init({ duration: 1000, once: true });
   }, []);
 
-  // State for feature navigation
-  const [showFirstSet, setShowFirstSet] = useState(true);
-  const [isAnimating, setIsAnimating] = useState(false);
-
-  // Function to switch features with animation
-  const toggleFeatures = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-
-    setTimeout(() => {
-      setShowFirstSet(!showFirstSet);
-      setIsAnimating(false);
-    }, 500);
+  // Features data
+  const features = {
+    admin: [
+      {
+        title: "Centralized Dashboard",
+        description:
+          "Manage students, instructors, subjects, and attendance in one secure hub.",
+        icon: <FaUserShield />,
+      },
+      {
+        title: "Student Management",
+        description:
+          "Upload CORs, import via CSV, monitor profiles, and check face registration status.",
+        icon: <FaUsers />,
+      },
+      {
+        title: "Instructor Assignment",
+        description:
+          "Easily link instructors to sections and subjects with flexible schedules.",
+        icon: <FaChalkboardTeacher />,
+      },
+      {
+        title: "Attendance Monitoring",
+        description:
+          "View logs, filter by section/subject, and export reports to PDF/CSV.",
+        icon: <FaRegFileAlt />,
+      },
+    ],
+    instructor: [
+      {
+        title: "Instructor Dashboard",
+        description:
+          "Access assigned subjects and sections with real-time updates.",
+        icon: <FaLaptopCode />,
+      },
+      {
+        title: "Secure Attendance Sessions",
+        description:
+          "Activate attendance during schedules, with camera and AI scanning.",
+        icon: <FaCamera />,
+      },
+      {
+        title: "Real-Time Logs",
+        description:
+          "See students marked as Present, Late, or Absent instantly.",
+        icon: <FaUsers />,
+      },
+      {
+        title: "Exportable Reports",
+        description:
+          "Download subject-based attendance logs for documentation.",
+        icon: <FaRegFileAlt />,
+      },
+    ],
+    student: [
+      {
+        title: "Face-Based Login",
+        description:
+          "Students log in using only their face — secure and password-free.",
+        icon: <FaFingerprint />,
+      },
+      {
+        title: "Certificate Upload",
+        description:
+          "Upload COR, auto-detect schedule, year, and subjects for current semester.",
+        icon: <FaRegFileAlt />,
+      },
+      {
+        title: "Attendance Dashboard",
+        description:
+          "View attendance history, schedules, and overall percentage summary.",
+        icon: <FaUsers />,
+      },
+      {
+        title: "Downloadable Reports",
+        description:
+          "Get attendance reports instantly in PDF for personal tracking.",
+        icon: <FaRegFileAlt />,
+      },
+    ],
+    ai: [
+      {
+        title: "ResNet Anti-Spoofing",
+        description:
+          "Detects fake faces from photos, videos, or screens before recognition.",
+        icon: <FaRobot />,
+      },
+      {
+        title: "ArcFace Recognition",
+        description:
+          "High-accuracy face verification powered by InsightFace embeddings.",
+        icon: <FaFingerprint />,
+      },
+      {
+        title: "Multi-Angle Registration",
+        description:
+          "Captures 5 angles (front, left, right, up, down) for robust accuracy.",
+        icon: <FaCamera />,
+      },
+      {
+        title: "Real-Time Multi-Face Detection",
+        description:
+          "Detects and processes multiple students simultaneously during sessions.",
+        icon: <FaUserFriends />,
+      }
+    ],
   };
 
-  // Features Data
-  const featuresSet1 = [
-    {
-      id: "01",
-      title: "Real-Time Face Recognition",
-      description: "AI-powered system detects students in real-time with multi-angle face registration.",
-      icon: <FaUserCheck className="text-blue-500 text-4xl mb-4" />,
-    },
-    {
-      id: "02",
-      title: "Secure and Automated Logging",
-      description: "Records attendance securely in a centralized system, eliminating manual tracking.",
-      icon: <FaShieldAlt className="text-green-500 text-4xl mb-4" />,
-    },
-  ];
-
-  const featuresSet2 = [
-    {
-      id: "03",
-      title: "User-Friendly Dashboards",
-      description: "Instructors and students access schedules, attendance records, and reports easily.",
-      icon: <FaChartLine className="text-purple-500 text-4xl mb-4" />,
-    },
-    {
-      id: "04",
-      title: "Blinking Verification",
-      description: "Prevents unauthorized check-ins by requiring a double-blink confirmation for security.",
-      icon: <FaEye className="text-yellow-500 text-4xl mb-4" />,
-    },
-  ];
-
   return (
-    <section className="bg-neutral-900 text-white pt-20 px-6 pb-12 md:px-12">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[40%_60%] gap-12 items-center">
-        
-        {/* Left Side: Title & Description */}
-        <div data-aos="fade-right" className="max-w-md mb-24">
-          <h2 className="text-4xl font-bold mb-4">FEATURES</h2>
-          <p className="text-gray-400">
-            Explore the powerful features of our AI-powered attendance system, designed to enhance security and accuracy.
-          </p>
-        </div>
+    <section className="relative bg-neutral-900 text-white py-20 px-6 md:px-12 overflow-hidden">
+      {/* Gradient Glow Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/20 via-transparent to-green-800/10 pointer-events-none"></div>
 
-        {/* Right Side: Feature Cards with Animation */}
-        <div className="relative min-h-[350px]">
+      {/* Section Header */}
+      <div
+        className="relative max-w-5xl mx-auto text-center mb-14"
+        data-aos="fade-up"
+      >
+        <h2 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-emerald-400 to-green-600 text-transparent bg-clip-text drop-shadow-lg">
+          System Features
+        </h2>
+        <p className="text-gray-400 max-w-2xl mx-auto mt-4 text-lg">
+          Explore how our AI-powered Attendance Monitoring System empowers
+          <span className="text-emerald-400 font-semibold"> Admins</span>,{" "}
+          <span className="text-emerald-300 font-semibold">Instructors</span>, and{" "}
+          <span className="text-emerald-200 font-semibold">Students</span>.
+        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="relative flex justify-center gap-3 mb-12 flex-wrap z-10">
+        <button
+          onClick={() => setActiveTab("admin")}
+          className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+            activeTab === "admin"
+              ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          }`}
+        >
+          <FaUserTie /> Admin
+        </button>
+        <button
+          onClick={() => setActiveTab("instructor")}
+          className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+            activeTab === "instructor"
+              ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          }`}
+        >
+          <FaChalkboard /> Instructor
+        </button>
+        <button
+          onClick={() => setActiveTab("student")}
+          className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+            activeTab === "student"
+              ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          }`}
+        >
+          <FaUserGraduate /> Student
+        </button>
+        <button
+          onClick={() => setActiveTab("ai")}
+          className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+            activeTab === "ai"
+              ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          }`}
+        >
+          <FaMicrochip /> AI Models
+        </button>
+      </div>
+
+      {/* Feature Cards */}
+      <div
+        className="relative grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 max-w-7xl mx-auto z-10"
+        data-aos="fade-up"
+      >
+        {features[activeTab].map((feature, index) => (
           <div
-            className={`absolute w-full grid grid-cols-1 md:grid-cols-2 gap-6 transition-opacity duration-500 ${
-              isAnimating ? "opacity-0" : "opacity-100"
-            }`}
-            key={showFirstSet ? "set1" : "set2"}
+            key={index}
+            className="relative bg-neutral-900/70 backdrop-blur-xl border border-neutral-700 rounded-2xl p-6 shadow-lg transition-transform duration-300 hover:-translate-y-2 hover:shadow-emerald-500/30"
           >
-            {/* Show either first or second set of features */}
-            {(showFirstSet ? featuresSet1 : featuresSet2).map((feature, index) => (
-              <div
-                key={index}
-                className="bg-neutral-800 p-6 rounded-lg shadow-lg transform transition-transform hover:scale-105 hover:shadow-xl min-h-[220px] md:min-h-[250px]"
-                data-aos="fade-up"
-                data-aos-delay={index * 200}
-              >
-                <span className="text-gray-600 text-6xl font-bold absolute opacity-20">{feature.id}</span>
-                {feature.icon}
-                <h3 className="text-xl font-bold">{feature.title}</h3>
-                <p className="text-gray-300 text-sm mt-2">{feature.description}</p>
-                <a href="#" className="text-blue-400 font-medium mt-4 inline-block hover:underline">
-                  Learn More →
-                </a>
-              </div>
-            ))}
-          </div>
+            {/* Number Badge */}
+            <span className="absolute -top-4 -left-4 flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold text-sm shadow-md">
+              {String(index + 1).padStart(2, "0")}
+            </span>
 
-          {/* Arrow Button to Toggle Features */}
-          <button
-            className="absolute top-1/2 right-[-30px] transform -translate-y-1/2 bg-gray-700 p-4 rounded-full hover:bg-gray-500 transition-all"
-            onClick={toggleFeatures}
-          >
-            <FaArrowRight className="text-white text-xl" />
-          </button>
-        </div>
+            {/* Icon */}
+            <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 text-emerald-400 text-3xl mb-4">
+              {feature.icon}
+            </div>
+
+            {/* Title & Description */}
+            <h3 className="text-lg font-bold text-white mb-2">
+              {feature.title}
+            </h3>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              {feature.description}
+            </p>
+          </div>
+        ))}
       </div>
     </section>
   );

@@ -18,6 +18,7 @@ import {
   LineChart,
   Line,
   ResponsiveContainer,
+  Label,
 } from "recharts";
 
 // ✅ Colors for statuses
@@ -35,6 +36,8 @@ const AttendanceMonitoringComponent = () => {
     subject: "All",
     section: "All",
     instructor: "All",
+    startDate: "",
+    endDate: "",
   });
   const [breakdownView, setBreakdownView] = useState("None");
   const [loading, setLoading] = useState(true);
@@ -77,14 +80,28 @@ const AttendanceMonitoringComponent = () => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
 
-  // ✅ Apply filters
+  // ✅ Apply filters with date range
   const filteredLogs = logs.filter((log) => {
     const courseMatch = filters.course === "All" || log.course === filters.course;
     const subjectMatch = filters.subject === "All" || log.subject_code === filters.subject;
     const sectionMatch = filters.section === "All" || log.section === filters.section;
     const instructorMatch =
       filters.instructor === "All" || log.instructor_name === filters.instructor;
-    return courseMatch && subjectMatch && sectionMatch && instructorMatch;
+
+    const logDate = new Date(log.date);
+    const startDateMatch =
+      !filters.startDate || logDate >= new Date(filters.startDate);
+    const endDateMatch =
+      !filters.endDate || logDate <= new Date(filters.endDate);
+
+    return (
+      courseMatch &&
+      subjectMatch &&
+      sectionMatch &&
+      instructorMatch &&
+      startDateMatch &&
+      endDateMatch
+    );
   });
 
   // ✅ Dropdown options
@@ -114,7 +131,10 @@ const AttendanceMonitoringComponent = () => {
     },
     { Present: 0, Absent: 0, Late: 0, Total: 0 }
   );
-  const attendanceRate = summary.Total > 0 ? ((summary.Present / summary.Total) * 100).toFixed(1) : 0;
+  const attendanceRate =
+  summary.Total > 0
+    ? (((summary.Present + summary.Late) / summary.Total) * 100).toFixed(1)
+    : 0;
 
   // ✅ Daily data for charts
   const dailyData = Object.values(
@@ -133,14 +153,17 @@ const AttendanceMonitoringComponent = () => {
     { name: "Late", value: summary.Late },
   ];
 
-  // ✅ Breakdown calc
+  // ✅ Breakdown calculation
   const calculateBreakdown = (groupBy) => {
     const summary = {};
     filteredLogs.forEach((log) => {
       let key = "";
-      if (groupBy === "Student") key = `${log.student_id} - ${log.first_name} ${log.last_name}`;
-      if (groupBy === "Subject") key = `${log.subject_code} - ${log.subject_title}`;
+      if (groupBy === "Student")
+        key = `${log.student_id} - ${log.first_name} ${log.last_name}`;
+      if (groupBy === "Subject")
+        key = `${log.subject_code} - ${log.subject_title}`;
       if (groupBy === "Course") key = log.course;
+
       if (!summary[key]) summary[key] = { Present: 0, Absent: 0, Late: 0, Total: 0 };
       summary[key][log.status] = (summary[key][log.status] || 0) + 1;
       summary[key].Total += 1;
@@ -149,11 +172,15 @@ const AttendanceMonitoringComponent = () => {
     return Object.entries(summary).map(([name, stats]) => ({
       name,
       ...stats,
-      Rate: stats.Total > 0 ? ((stats.Present / stats.Total) * 100).toFixed(1) + "%" : "0%",
+      Rate:
+        stats.Total > 0
+          ? ((stats.Present / stats.Total) * 100).toFixed(1) + "%"
+          : "0%",
     }));
   };
 
-  const breakdownData = breakdownView !== "None" ? calculateBreakdown(breakdownView) : [];
+  const breakdownData =
+    breakdownView !== "None" ? calculateBreakdown(breakdownView) : [];
 
   // ✅ Export PDF
   const exportToPDF = () => {
@@ -165,17 +192,28 @@ const AttendanceMonitoringComponent = () => {
 
     doc.setFont("times", "bold");
     doc.setFontSize(14);
-    doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
-    doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, { align: "center" });
+    doc.text("Republic of the Philippines", pageWidth / 2, 18, {
+      align: "center",
+    });
+    doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, {
+      align: "center",
+    });
 
     doc.setFont("times", "italic");
     doc.setFontSize(11);
-    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, { align: "center" });
+    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, {
+      align: "center",
+    });
     doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
 
     doc.setFont("times", "bold");
     doc.setFontSize(12);
-    doc.text("COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY", pageWidth / 2, 45, { align: "center" });
+    doc.text(
+      "COLLEGE OF COMMUNICATION AND INFORMATION TECHNOLOGY",
+      pageWidth / 2,
+      45,
+      { align: "center" }
+    );
 
     doc.setFontSize(14);
     doc.setTextColor(34, 197, 94);
@@ -210,8 +248,8 @@ const AttendanceMonitoringComponent = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      {/* Filters (with date range) */}
+      <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
         {["course", "subject", "section", "instructor"].map((field) => (
           <select
             key={field}
@@ -219,23 +257,50 @@ const AttendanceMonitoringComponent = () => {
             onChange={(e) => handleFilterChange(field, e.target.value)}
             className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
           >
-            <option value="All">All {field.charAt(0).toUpperCase() + field.slice(1)}s</option>
-            {(field === "course" ? uniqueCourses :
-              field === "subject" ? uniqueSubjects :
-              field === "section" ? uniqueSections : uniqueInstructors
+            <option value="All">
+              All {field.charAt(0).toUpperCase() + field.slice(1)}s
+            </option>
+            {(field === "course"
+              ? uniqueCourses
+              : field === "subject"
+              ? uniqueSubjects
+              : field === "section"
+              ? uniqueSections
+              : uniqueInstructors
             ).map((item, idx) => (
-              <option key={idx} value={item}>{item}</option>
+              <option key={idx} value={item}>
+                {item}
+              </option>
             ))}
           </select>
         ))}
+
+        <input
+          type="date"
+          value={filters.startDate}
+          onChange={(e) => handleFilterChange("startDate", e.target.value)}
+          className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+        />
+        <input
+          type="date"
+          value={filters.endDate}
+          onChange={(e) => handleFilterChange("endDate", e.target.value)}
+          className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
+        />
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {["Present", "Absent", "Late"].map((status) => (
-          <div key={status} className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 text-center">
+          <div
+            key={status}
+            className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 text-center"
+          >
             <p className="text-neutral-400 text-sm">{status}</p>
-            <p className="text-2xl font-bold" style={{ color: COLORS[status] }}>
+            <p
+              className="text-2xl font-bold"
+              style={{ color: COLORS[status] }}
+            >
               {summary[status]}
             </p>
           </div>
@@ -264,21 +329,56 @@ const AttendanceMonitoringComponent = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-
         {/* Pie Chart */}
         <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700">
           <h3 className="text-white font-semibold mb-4">Attendance Distribution</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" outerRadius={100} label dataKey="value">
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart>
+            <Pie
+              data={pieData}
+              cx="40%" // shifted left kasi nasa kanan ang legend
+              cy="50%"
+              innerRadius={70}
+              outerRadius={120}
+              paddingAngle={0}
+              dataKey="value"
+            >
+              {pieData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
+              ))}
+            </Pie>
+
+            {/* Custom center text */}
+            <text
+              x="34%"
+              y="48%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="text-3xl font-bold"
+              fill="#ffffff"
+            >
+              {summary.Total}
+            </text>
+            <text
+              x="34%"
+              y="55%"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="text-sm"
+              fill="#ffffff"
+            >
+              {attendanceRate}%
+            </text>
+
+            <Legend
+              layout="vertical"
+              verticalAlign="middle"
+              align="right"
+              iconType="circle"
+            />
+            <Tooltip />
+          </PieChart>
+        </ResponsiveContainer>
         </div>
       </div>
 
@@ -292,9 +392,24 @@ const AttendanceMonitoringComponent = () => {
             <YAxis stroke="#ccc" />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="Present" stroke={COLORS.Present} strokeWidth={2} />
-            <Line type="monotone" dataKey="Absent" stroke={COLORS.Absent} strokeWidth={2} />
-            <Line type="monotone" dataKey="Late" stroke={COLORS.Late} strokeWidth={2} />
+            <Line
+              type="monotone"
+              dataKey="Present"
+              stroke={COLORS.Present}
+              strokeWidth={2}
+            />
+            <Line
+              type="monotone"
+              dataKey="Absent"
+              stroke={COLORS.Absent}
+              strokeWidth={2}
+            />
+            <Line
+              type="monotone"
+              dataKey="Late"
+              stroke={COLORS.Late}
+              strokeWidth={2}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -352,7 +467,9 @@ const AttendanceMonitoringComponent = () => {
           <div className="px-4 py-3">Date</div>
         </div>
         {loading ? (
-          <div className="px-4 py-6 text-center text-neutral-400 italic">Loading logs...</div>
+          <div className="px-4 py-6 text-center text-neutral-400 italic">
+            Loading logs...
+          </div>
         ) : filteredLogs.length > 0 ? (
           filteredLogs.map((log, idx) => (
             <div
@@ -360,15 +477,31 @@ const AttendanceMonitoringComponent = () => {
               className="grid grid-cols-6 text-sm text-white border-b border-neutral-700 hover:bg-neutral-800/60"
             >
               <div className="px-4 py-3">{log.student_id}</div>
-              <div className="px-4 py-3">{log.first_name} {log.last_name}</div>
+              <div className="px-4 py-3">
+                {log.first_name} {log.last_name}
+              </div>
               <div className="px-4 py-3">{log.course}</div>
               <div className="px-4 py-3">{log.subject_code}</div>
-              <div className="px-4 py-3">{log.status}</div>
-              <div className="px-4 py-3">{new Date(log.date).toLocaleDateString()}</div>
+              <div
+                className={`px-4 py-3 font-semibold ${
+                  log.status === "Present"
+                    ? "text-green-400"
+                    : log.status === "Absent"
+                    ? "text-red-400"
+                    : "text-yellow-400"
+                }`}
+              >
+                {log.status}
+              </div>
+              <div className="px-4 py-3">
+                {new Date(log.date).toLocaleDateString()}
+              </div>
             </div>
           ))
         ) : (
-          <div className="px-4 py-6 text-center text-neutral-400 italic">No attendance logs found</div>
+          <div className="px-4 py-6 text-center text-neutral-400 italic">
+            No attendance logs found
+          </div>
         )}
       </div>
     </div>
