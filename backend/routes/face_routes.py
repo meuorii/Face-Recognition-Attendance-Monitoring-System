@@ -24,6 +24,10 @@ from utils.face_login import recognize_face
 from utils.face_recognition import handle_attendance_session
 from models.face_db_model import save_face_data, get_student_by_id, normalize_student
 from utils.face_utils import get_face_embedding
+from utils.embedding_saver import save_embedding, init_csv  # <-- NEW
+
+# Initialize CSV once
+init_csv()
 
 # Blueprint
 face_bp = Blueprint("face", __name__)
@@ -61,8 +65,9 @@ def register_auto():
     try:
         data = request.get_json(silent=True) or {}
         student_id = data.get("student_id")
+        angle = data.get("angle")  # e.g. "front", "left", "right", "up", "down"
 
-        if not data.get("image") or not student_id:
+        if not data.get("image") or not student_id or not angle:
             return jsonify({"error": "Missing required fields"}), 400
 
         future = executor.submit(register_face_auto, data)
@@ -71,8 +76,19 @@ def register_auto():
         except TimeoutError:
             return jsonify({"error": "Registration timed out"}), 408
 
-        if result.get("success"):
-            return jsonify(result), 200
+        if result.get("success") and "embedding" in result:
+            embedding = np.array(result["embedding"])
+
+            # ✅ Save 2 embeddings for redundancy
+            save_embedding(student_id, angle, embedding, capture_id="1")
+            save_embedding(student_id, angle, embedding, capture_id="2")
+
+            return jsonify({
+                "success": True,
+                "message": f"Embedding saved for {student_id} ({angle})",
+                "angle": angle
+            }), 200
+
         return jsonify(result), 400
 
     except Exception:
@@ -143,6 +159,7 @@ def register_frame():
         data = request.get_json(silent=True) or {}
         base64_image = data.get("image")
         student_id = data.get("student_id")
+        angle = data.get("angle", "front")  # Default front
 
         if not base64_image or not student_id:
             return jsonify({"error": "Missing data"}), 400
@@ -158,7 +175,7 @@ def register_frame():
 
         filename = f"frame_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
 
-        # ✅ Don't overwrite created_at if it already exists
+        # ✅ Save to MongoDB
         update_fields = {
             "first_name": data.get("first_name", ""),
             "last_name": data.get("last_name", ""),
@@ -173,6 +190,10 @@ def register_frame():
             update_fields["created_at"] = datetime.utcnow()
 
         save_face_data(student_id=student_id, update_fields=update_fields)
+
+        # ✅ Also save to CSV (2 embeddings per angle)
+        save_embedding(student_id, angle, embedding, capture_id="1")
+        save_embedding(student_id, angle, embedding, capture_id="2")
 
         return jsonify({"success": True, "frame_id": filename}), 200
 
