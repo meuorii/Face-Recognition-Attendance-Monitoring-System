@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import bcrypt
 from bson import ObjectId
 from datetime import datetime, timedelta
@@ -182,14 +182,23 @@ def attendance_report(class_id):
 @instructor_bp.route("/attendance-report/all", methods=["GET"])
 @jwt_required()
 def attendance_report_all():
+    instructor_id = get_jwt_identity()  # ✅ get current logged-in instructor
+
     start_date = request.args.get("from")
     end_date = request.args.get("to")
 
-    query = {}
-    if start_date and end_date:
-        query["date"] = {"$gte": start_date, "$lte": end_date}  # ✅ string-based
+    query = {"instructor_id": instructor_id}  # 🔒 restrict to this instructor
 
-    logs = list(attendance_collection.find(query))
+    if start_date and end_date:
+        try:
+            start = datetime.fromisoformat(start_date).strftime("%Y-%m-%d")
+            end = (datetime.fromisoformat(end_date) + timedelta(days=1)).strftime("%Y-%m-%d")
+        except Exception:
+            start, end = start_date, end_date
+        query["date"] = {"$gte": start, "$lt": end}
+
+    logs = list(attendance_collection.find(query).sort("date", 1))
+
     results = []
     for log in logs:
         date_str = str(log.get("date"))

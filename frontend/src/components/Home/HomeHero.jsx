@@ -26,7 +26,7 @@ function HomeHero() {
       </div>
 
       {/* Dark Overlay + Green Gradient Glow */}
-      <div className="absolute inset-0 bg-black/60 z-20"></div>
+      <div className="absolute inset-0 bg-black/50 z-20"></div>
       <div className="absolute -top-20 -left-20 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full z-20"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full z-20"></div>
 

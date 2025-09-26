@@ -76,12 +76,12 @@ def register_auto():
         except TimeoutError:
             return jsonify({"error": "Registration timed out"}), 408
 
-        if result.get("success") and "embedding" in result:
-            embedding = np.array(result["embedding"])
-
-            # ✅ Save 2 embeddings for redundancy
-            save_embedding(student_id, angle, embedding, capture_id="1")
-            save_embedding(student_id, angle, embedding, capture_id="2")
+        # ✅ Only save to CSV if embedding is provided
+        if result.get("success"):
+            embedding = result.get("embedding")
+            if embedding is not None:
+                save_embedding(student_id, angle, np.array(embedding), capture_id="1")
+                save_embedding(student_id, angle, np.array(embedding), capture_id="2")
 
             return jsonify({
                 "success": True,
@@ -95,6 +95,7 @@ def register_auto():
         import traceback
         print("❌ Error in /register-auto:", traceback.format_exc())
         return jsonify({"error": "Internal server error"}), 500
+
 
 
 # ✅ Face Login (ArcFace + Anti-spoof)
