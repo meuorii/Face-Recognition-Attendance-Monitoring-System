@@ -110,7 +110,6 @@ function StudentFaceLoginComponent() {
       if (!faceDetected) {
         setFaceDetected(true);
 
-        // 🚀 Trigger auto-scan when face first appears
         if (
           !attemptingRef.current &&
           !isLoggingIn &&
@@ -121,11 +120,10 @@ function StudentFaceLoginComponent() {
           attemptingRef.current = true;
           setTimeout(() => {
             handleScanFace();
-          }, 800); // small delay for stability
+          }, 800);
         }
       }
 
-      // Draw bounding box
       const landmarks = results.multiFaceLandmarks[0];
       const xs = landmarks.map((p) => p.x * canvas.width);
       const ys = landmarks.map((p) => p.y * canvas.height);
@@ -157,7 +155,7 @@ function StudentFaceLoginComponent() {
 
     const ctx = canvas.getContext("2d");
     ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1); // mirror
+    ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     return canvas.toDataURL("image/jpeg");
@@ -194,7 +192,6 @@ function StudentFaceLoginComponent() {
         setRecognizedStudent(student);
         toast.success(`🎉 Welcome, ${student.first_name}! Logging in...`);
 
-        // ✅ Delay so toast shows before redirect
         setTimeout(() => {
           loginStudent(data.token, student);
         }, 1000);
@@ -213,7 +210,6 @@ function StudentFaceLoginComponent() {
     }
   };
 
-  // ✅ keep your original loginStudent untouched
   const loginStudent = (token, student) => {
     if (isLoggingIn) return;
     setIsLoggingIn(true);
@@ -226,13 +222,23 @@ function StudentFaceLoginComponent() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white flex flex-col items-center justify-center px-4 py-8">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-green-400 mb-2">Student Face Login</h1>
-        <p className="text-gray-300 text-lg">Align your face to login automatically</p>
+    <div className="min-h-screen relative flex flex-col items-center justify-center bg-neutral-950 text-white px-4 py-10 overflow-hidden">
+      {/* Glow background */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
+
+      {/* Header */}
+      <div className="text-center mb-8 relative z-10">
+        <h1 className="text-4xl md:text-5xl font-extrabold mb-2 bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
+          Student Face Login
+        </h1>
+        <p className="text-gray-300 text-lg">
+          Align your face and get logged in automatically
+        </p>
       </div>
 
-      <div className="relative w-100 h-100 rounded-2xl overflow-hidden border-4 border-green-500 shadow-xl mb-6">
+      {/* Webcam Frame */}
+      <div className={`relative w-[320px] h-[320px] md:w-[420px] md:h-[420px] rounded-2xl overflow-hidden border-4 transition-all shadow-2xl ${faceDetected ? "border-emerald-400 shadow-emerald-500/40" : "border-gray-700"}`}>
         <video
           ref={videoRef}
           autoPlay
@@ -248,17 +254,20 @@ function StudentFaceLoginComponent() {
         />
       </div>
 
-      <div className="text-center mb-6">
+      {/* Status Feedback */}
+      <div className="text-center mt-6 relative z-10">
         {faceDetected ? (
           recognizedStudent ? (
-            <p className="text-xl text-green-300 font-semibold mb-1">
-              Welcome {recognizedStudent.first_name}! 👋
+            <p className="text-xl font-semibold text-emerald-400 animate-pulse">
+              🎉 Welcome {recognizedStudent.first_name}!
             </p>
           ) : (
-            <p className="text-blue-300">Face detected — scanning...</p>
+            <p className="text-lg text-blue-300 animate-pulse">
+              Face detected — scanning...
+            </p>
           )
         ) : (
-          <p className="text-gray-400">Align your face to the camera</p>
+          <p className="text-gray-400">Please align your face with the camera</p>
         )}
       </div>
 

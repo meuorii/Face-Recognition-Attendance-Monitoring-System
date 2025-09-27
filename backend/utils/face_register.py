@@ -46,35 +46,29 @@ def get_face_angle(landmarks, w, h):
 def register_face_auto(data):
     try:
         student_id = data.get("student_id")
-        first_name = data.get("first_name", "")
-        last_name = data.get("last_name", "")
-        middle_name = data.get("middle_name", "")
-        course = data.get("course", "")
-        email = data.get("email", "")
-        contact_number = data.get("contact_number", "")
         base64_image = data.get("image")
         angle_from_frontend = data.get("angle")
 
         if not student_id or not base64_image:
             return {"success": False, "error": "Missing student_id or image"}
 
-        # Decode base64 image
+        # Decode base64
         try:
             img_bytes = base64.b64decode(base64_image.split(",")[1])
             img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_COLOR)
             if img is None:
                 return {"success": False, "error": "Image decoding failed"}
-            img = cv2.flip(img, 1)  # mirror fix
+            img = cv2.flip(img, 1)
         except Exception as e:
             print("❌ Base64 decoding error:", str(e))
             return {"success": False, "error": "Invalid image format"}
 
-        # Get angle using MediaPipe
+        # Face landmarks (MediaPipe)
         try:
             rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             results = face_mesh.process(rgb)
             if not results.multi_face_landmarks:
-                return {"success": False, "error": "No face detected by MediaPipe"}
+                return {"success": False, "error": "No face detected"}
             h, w = img.shape[:2]
             landmarks = results.multi_face_landmarks[0].landmark
             angle = angle_from_frontend or get_face_angle(landmarks, w, h)
@@ -84,7 +78,7 @@ def register_face_auto(data):
 
         print(f"🎯 Detected angle: {angle}")
 
-        # Extract embedding using InsightFace
+        # ArcFace embedding
         if face_model is None:
             return {"success": False, "error": "Face model not initialized"}
         try:
@@ -96,30 +90,37 @@ def register_face_auto(data):
             print("❌ Embedding extraction failed:", str(e))
             return {"success": False, "error": "Embedding generation error"}
 
-        # --- Save to MongoDB (Section & Subjects blank muna) ---
-        save_face_data(
-            student_id=student_id,
-            update_fields={
-                "First_Name": first_name,
-                "Last_Name": last_name,
-                "Middle_Name": middle_name,
-                "Course": course,
-                "Email": email,
-                "Contact_Number": contact_number,
-                "Section": "",          # blank until COR upload
-                "Subjects": [],         # empty list until COR upload
-                "created_at": datetime.utcnow(),  # ✅ set ngayong registration
-                f"embeddings.{angle}": embedding,
-            }
-        )
+        # Save to DB
+        try:
+            save_face_data(
+                student_id=student_id,
+                update_fields={
+                    "First_Name": data.get("first_name", ""),
+                    "Last_Name": data.get("last_name", ""),
+                    "Middle_Name": data.get("middle_name", ""),
+                    "Course": data.get("course", ""),
+                    "Email": data.get("email", ""),
+                    "Contact_Number": data.get("contact_number", ""),
+                    "Section": "",
+                    "Subjects": [],
+                    "created_at": datetime.utcnow(),
+                    f"embeddings.{angle}": embedding,
+                },
+            )
+            print(f"✅ Face data updated for {student_id}. Fields updated: ['embeddings.{angle}']")
+        except Exception as e:
+            print("❌ Database update failed:", str(e))
+            return {"success": False, "error": "Database update failed"}
 
+        # Final success
         return {
             "success": True,
             "message": f"✅ Face registered and saved angle: {angle}",
-            "angle": angle
+            "angle": angle,
         }
 
-    except Exception as e:
+    except Exception:
         import traceback
         print("❌ register_face_auto() Exception:", traceback.format_exc())
         return {"success": False, "error": "Internal server error"}
+

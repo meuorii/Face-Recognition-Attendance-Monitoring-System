@@ -103,9 +103,11 @@ function StudentRegisterFaceComponent() {
     };
   }, []);
 
+  // ✅ Stop capturing as soon as all angles are done
   useEffect(() => {
     if (Object.keys(angleStatus).length === REQUIRED_ANGLES.length) {
       setIsCapturing(false);
+      isCapturingRef.current = false;
       toast.success("🎉 All angles captured successfully!");
     }
   }, [angleStatus]);
@@ -161,6 +163,9 @@ function StudentRegisterFaceComponent() {
   };
 
   const handleAutoCapture = async (detectedAngle) => {
+    // ✅ Guard: stop extra requests after all angles captured
+    if (Object.keys(angleStatus).length === REQUIRED_ANGLES.length) return;
+
     const now = Date.now();
     const lastCapture = lastCaptureTimeRef.current[detectedAngle] || 0;
     const formReady = Object.values(formDataRef.current).every(
@@ -224,10 +229,10 @@ function StudentRegisterFaceComponent() {
     const nosePos = (nose.x - leftEye.x) / (eyeDist + 1e-6);
     const upDownRatio = (noseY - eyeMidY) / (mouthY - noseY + 1e-6);
 
-    if (nosePos < 0.35) return "right";   // a bit looser
-    if (nosePos > 0.75) return "left";    // a bit looser
-    if (upDownRatio > 1.8) return "down"; // was 2.5, relaxed
-    if (upDownRatio < 0.55) return "up";  // was 0.3, relaxed
+    if (nosePos < 0.35) return "right";
+    if (nosePos > 0.75) return "left";
+    if (upDownRatio > 1.8) return "down";
+    if (upDownRatio < 0.55) return "up";
     return "front";
   };
 
@@ -255,6 +260,7 @@ function StudentRegisterFaceComponent() {
       return;
     }
     setIsCapturing(true);
+    isCapturingRef.current = true; // ✅ sync immediately
     toast.info("📸 Auto capture started. Hold each angle steadily...");
   };
 
@@ -266,19 +272,38 @@ function StudentRegisterFaceComponent() {
     (Object.keys(angleStatus).length / REQUIRED_ANGLES.length) * 100;
 
   return (
-    <div className="min-h-screen bg-neutral-900 text-white px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-green-400 text-center mb-2">
+    <div
+      className="min-h-screen relative bg-neutral-950 text-white px-6 md:px-12 py-12 
+                flex flex-col overflow-hidden"
+    >
+      {/* Background Glow Effects */}
+      <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/10 via-neutral-900 to-black"></div>
+      <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
+      <div className="relative z-10 w-full max-w-7xl mx-auto">
+        <h1
+          className="text-4xl md:text-5xl font-extrabold 
+            bg-gradient-to-r from-emerald-400 to-green-600 
+            bg-clip-text text-transparent 
+            drop-shadow-lg text-center mb-4"
+        >
           Student Face Registration
         </h1>
-        <p className="text-center text-gray-400 mb-8">
-          Fill in your details and register your face from multiple angles.
+        <p
+          className="text-center text-gray-300 text-lg md:text-xl 
+            max-w-xl mx-auto leading-relaxed mb-10"
+        >
+          Fill in your details and register your face across multiple angles 
+          to ensure high accuracy during attendance sessions.
         </p>
 
+        {/* --- Layout --- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
           {/* LEFT: CAMERA + STATUS */}
           <div className="flex flex-col items-center">
-            <div className="relative w-100 h-100 rounded-2xl overflow-hidden border-4 border-green-500 shadow-xl">
+            <div className="relative w-[380px] h-[380px] rounded-2xl overflow-hidden 
+              border border-emerald-400/50 backdrop-blur-md 
+              shadow-[0_0_40px_rgba(16,185,129,0.3)]">
               <video
                 ref={videoRef}
                 autoPlay
@@ -294,62 +319,62 @@ function StudentRegisterFaceComponent() {
               />
             </div>
 
-            <div className="text-center mt-3">
+            {/* Status */}
+            <div className="text-center mt-4 space-y-2">
               {faceDetected ? (
                 <>
-                  <p className="text-green-400 text-sm">
-                    Face Detected ({Object.keys(angleStatus).length}/
-                    {REQUIRED_ANGLES.length})
+                  <p className="inline-block px-4 py-1 rounded-full text-sm font-medium 
+                    bg-green-500/20 text-green-400 border border-green-500/40">
+                    ✅ Face Detected ({Object.keys(angleStatus).length}/{REQUIRED_ANGLES.length})
                   </p>
                   {currentAngle && (
-                    <p className="text-blue-400 text-sm">
-                      Current Angle:{" "}
-                      <span className="uppercase">{currentAngle}</span>
+                    <p className="inline-block px-4 py-1 rounded-full text-sm font-medium 
+                      bg-blue-500/20 text-blue-400 border border-blue-500/40">
+                      🎯 Current Angle: <span className="uppercase">{currentAngle}</span>
                     </p>
                   )}
                 </>
               ) : (
-                <p className="text-red-400 font-medium text-sm">
+                <p className="inline-block px-4 py-1 rounded-full text-sm font-medium 
+                  bg-red-500/20 text-red-400 border border-red-500/40">
                   ❌ No Face Detected
                 </p>
               )}
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full max-w-sm mt-4">
-              <p className="text-sm text-center mb-1">
-                Captured: {Object.keys(angleStatus).length} /{" "}
-                {REQUIRED_ANGLES.length}
+            <div className="w-full max-w-sm mt-6">
+              <p className="text-sm text-center mb-2 text-gray-300">
+                Captured: {Object.keys(angleStatus).length} / {REQUIRED_ANGLES.length}
               </p>
-              <div className="bg-gray-700 h-2 rounded">
+              <div className="bg-gray-800 h-3 rounded-full overflow-hidden">
                 <div
-                  className="bg-green-500 h-2 rounded transition-all duration-300"
+                  className="h-3 rounded-full bg-gradient-to-r from-emerald-400 to-green-600 
+                    transition-all duration-500"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
             </div>
 
             {/* Angle Status */}
-            <div className="grid grid-cols-5 gap-2 mt-4">
+            <div className="grid grid-cols-5 gap-4 mt-6">
               {REQUIRED_ANGLES.map((angle) => (
-                <div
-                  key={angle}
-                  className="flex flex-col items-center text-center"
-                >
+                <div key={angle} className="flex flex-col items-center text-center">
                   <div
-                    className={`w-12 h-12 rounded flex items-center justify-center border text-sm font-medium ${
-                      angleStatus[angle]
-                        ? "bg-green-600 text-white border-green-500"
-                        : "bg-neutral-800 text-gray-400 border-green-500"
-                    }`}
+                    className={`w-14 h-14 rounded-full flex items-center justify-center border-2 text-sm font-medium transition-all duration-300
+                      ${
+                        angleStatus[angle]
+                          ? "bg-gradient-to-br from-emerald-400 to-green-600 text-white border-green-500 shadow-lg shadow-emerald-500/40"
+                          : "bg-neutral-800 text-gray-400 border-gray-600"
+                      }`}
                   >
                     {angleStatus[angle] ? (
-                      <FaCheckCircle className="text-white text-lg" />
+                      <FaCheckCircle className="text-white text-xl" />
                     ) : (
-                      "Pending"
+                      "–"
                     )}
                   </div>
-                  <span className="text-xs mt-1 text-green-300 uppercase">
+                  <span className="text-xs mt-2 text-gray-300 uppercase tracking-wide">
                     {angle}
                   </span>
                 </div>
@@ -358,67 +383,32 @@ function StudentRegisterFaceComponent() {
           </div>
 
           {/* RIGHT: FORM */}
-          <div>
-            <div className="grid grid-cols-2 gap-4 mt-6 mb-6">
-              <input
-                name="Student_ID"
-                placeholder="Student ID:"
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                name="First_Name"
-                placeholder="First Name:"
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                name="Middle_Name"
-                placeholder="Middle Name:"
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                name="Last_Name"
-                placeholder="Last Name:"
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-              <input
-                name="Email"
-                placeholder="Email:"
-                type="email"
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 col-span-2"
-              />
-              <input
-                name="Contact_Number"
-                placeholder="Contact Number:"
-                type="tel"
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 col-span-2"
-              />
-              <select
-                name="Course"
-                value={formData.Course}
-                onChange={handleChange}
-                className="p-3 rounded bg-neutral-800 text-white focus:outline-none focus:ring-2 focus:ring-green-500 col-span-2"
-              >
-                <option value="">Course:</option>
+          <div className="w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 mb-6">
+              <input name="Student_ID" placeholder="Student ID" onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all" />
+              <input name="First_Name" placeholder="First Name" onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all" />
+              <input name="Middle_Name" placeholder="Middle Name" onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all" />
+              <input name="Last_Name" placeholder="Last Name" onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all" />
+              <input name="Email" placeholder="Email" type="email" onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all md:col-span-2" />
+              <input name="Contact_Number" placeholder="Contact Number" type="tel" onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all md:col-span-2" />
+              <select name="Course" value={formData.Course} onChange={handleChange} className="p-3 rounded-lg bg-white/10 backdrop-blur-md border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all md:col-span-2">
+                <option value="">Course</option>
                 {COURSES.map((course) => (
-                  <option key={course} value={course}>
+                  <option key={course} value={course} className="bg-neutral-900 text-white">
                     {course}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="flex justify-center lg:justify-start">
+            <div className="flex justify-center lg:justify-start mt-6">
               {!isCapturing &&
               Object.keys(angleStatus).length < REQUIRED_ANGLES.length ? (
                 <button
                   onClick={handleStartCapture}
-                  className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-lg text-lg font-semibold flex items-center gap-2"
+                  className="px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-3 
+                    bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg 
+                    hover:scale-105 hover:shadow-emerald-500/40 transition-all duration-300"
                 >
                   <FaPlay className="text-xl" />
                   Start Capture
@@ -426,7 +416,9 @@ function StudentRegisterFaceComponent() {
               ) : (
                 <button
                   onClick={() => navigate("/student/login")}
-                  className="bg-blue-500 hover:bg-blue-600 px-6 py-3 rounded-lg text-lg font-semibold flex items-center gap-2"
+                  className="px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-3 
+                    bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg 
+                    hover:scale-105 hover:shadow-cyan-500/40 transition-all duration-300"
                 >
                   <FaSave className="text-xl" />
                   All Done – Proceed to Login

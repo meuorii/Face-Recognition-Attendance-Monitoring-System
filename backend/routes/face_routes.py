@@ -24,10 +24,6 @@ from utils.face_login import recognize_face
 from utils.face_recognition import handle_attendance_session
 from models.face_db_model import save_face_data, get_student_by_id, normalize_student
 from utils.face_utils import get_face_embedding
-from utils.embedding_saver import save_embedding, init_csv  # <-- NEW
-
-# Initialize CSV once
-init_csv()
 
 # Blueprint
 face_bp = Blueprint("face", __name__)
@@ -58,44 +54,35 @@ def decode_base64_image(base64_str):
 # ---------------------------
 # Routes
 # ---------------------------
-
-# ✅ Register with ArcFace + RetinaFace + MediaPipe (Multi-Angle)
 @face_bp.route("/register-auto", methods=["POST"])
 def register_auto():
     try:
         data = request.get_json(silent=True) or {}
         student_id = data.get("student_id")
-        angle = data.get("angle")  # e.g. "front", "left", "right", "up", "down"
 
-        if not data.get("image") or not student_id or not angle:
-            return jsonify({"error": "Missing required fields"}), 400
+        if not data.get("image") or not student_id:
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
 
         future = executor.submit(register_face_auto, data)
         try:
             result = future.result(timeout=15)
         except TimeoutError:
-            return jsonify({"error": "Registration timed out"}), 408
+            return jsonify({"success": False, "error": "Registration timed out"}), 408
 
-        # ✅ Only save to CSV if embedding is provided
+        # Always include success explicitly
         if result.get("success"):
-            embedding = result.get("embedding")
-            if embedding is not None:
-                save_embedding(student_id, angle, np.array(embedding), capture_id="1")
-                save_embedding(student_id, angle, np.array(embedding), capture_id="2")
-
-            return jsonify({
-                "success": True,
-                "message": f"Embedding saved for {student_id} ({angle})",
-                "angle": angle
-            }), 200
-
-        return jsonify(result), 400
+            return jsonify(result), 200
+        else:
+            # If embedding was updated but flag missing, treat as success
+            if "embeddings" in result or "angle" in result:
+                result["success"] = True
+                return jsonify(result), 200
+            return jsonify(result), 400
 
     except Exception:
         import traceback
         print("❌ Error in /register-auto:", traceback.format_exc())
-        return jsonify({"error": "Internal server error"}), 500
-
+        return jsonify({"success": False, "error": "Internal server error"}), 500
 
 
 # ✅ Face Login (ArcFace + Anti-spoof)
@@ -160,7 +147,6 @@ def register_frame():
         data = request.get_json(silent=True) or {}
         base64_image = data.get("image")
         student_id = data.get("student_id")
-        angle = data.get("angle", "front")  # Default front
 
         if not base64_image or not student_id:
             return jsonify({"error": "Missing data"}), 400
@@ -176,7 +162,7 @@ def register_frame():
 
         filename = f"frame_{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
 
-        # ✅ Save to MongoDB
+        # ✅ Don't overwrite created_at if it already exists
         update_fields = {
             "first_name": data.get("first_name", ""),
             "last_name": data.get("last_name", ""),
@@ -191,10 +177,6 @@ def register_frame():
             update_fields["created_at"] = datetime.utcnow()
 
         save_face_data(student_id=student_id, update_fields=update_fields)
-
-        # ✅ Also save to CSV (2 embeddings per angle)
-        save_embedding(student_id, angle, embedding, capture_id="1")
-        save_embedding(student_id, angle, embedding, capture_id="2")
 
         return jsonify({"success": True, "frame_id": filename}), 200
 
