@@ -1,3 +1,4 @@
+// src/components/Instructor/AttendanceSession.jsx
 import React, { useEffect, useState } from "react";
 import {
   getAttendanceLogs,
@@ -79,25 +80,25 @@ const AttendanceSession = () => {
     return () => clearInterval(interval);
   }, [lastClassId]);
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
+  const formatDate = (dateStr) =>
+    dateStr
+      ? new Date(dateStr).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "";
 
-  const formatTime = (dateStr) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
+  const formatTime = (dateStr) =>
+    dateStr
+      ? new Date(dateStr).toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "";
 
-  // ✅ Export PDF
+  // ✅ Export PDF (unchanged)
   const exportToPDF = () => {
     if (recognizedStudents.length === 0) {
       toast.info("⚠ No attendance logs to export.");
@@ -114,12 +115,21 @@ const AttendanceSession = () => {
     // University Header
     doc.setFont("times", "bold");
     doc.setFontSize(14);
-    doc.text("Republic of the Philippines", pageWidth / 2, 18, { align: "center" });
-    doc.text("President Ramon Magsaysay State University", pageWidth / 2, 25, { align: "center" });
+    doc.text("Republic of the Philippines", pageWidth / 2, 18, {
+      align: "center",
+    });
+    doc.text(
+      "President Ramon Magsaysay State University",
+      pageWidth / 2,
+      25,
+      { align: "center" }
+    );
 
     doc.setFont("times", "italic");
     doc.setFontSize(11);
-    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, { align: "center" });
+    doc.text("(Ramon Magsaysay Technological University)", pageWidth / 2, 32, {
+      align: "center",
+    });
     doc.text("Iba, Zambales", pageWidth / 2, 38, { align: "center" });
 
     doc.setFont("times", "bold");
@@ -134,16 +144,25 @@ const AttendanceSession = () => {
     // Title
     doc.setFontSize(14);
     doc.setTextColor(34, 197, 94);
-    doc.text("ATTENDANCE SESSION REPORT", pageWidth / 2, 55, { align: "center" });
+    doc.text("ATTENDANCE SESSION REPORT", pageWidth / 2, 55, {
+      align: "center",
+    });
 
-    // ✅ Class Info
+    // Class Info
     doc.setFont("times", "normal");
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
     if (activeClass) {
-      doc.text(`Subject: ${activeClass.subject_code} – ${activeClass.subject_title}`, 20, 65);
+      doc.text(
+        `Subject: ${activeClass.subject_code} – ${activeClass.subject_title}`,
+        20,
+        65
+      );
 
-      if (activeClass.instructor_first_name && activeClass.instructor_last_name) {
+      if (
+        activeClass.instructor_first_name &&
+        activeClass.instructor_last_name
+      ) {
         doc.text(
           `Instructor: ${activeClass.instructor_first_name} ${activeClass.instructor_last_name}`,
           20,
@@ -166,13 +185,23 @@ const AttendanceSession = () => {
     doc.setTextColor(80, 80, 80);
     doc.text(`Date: ${formatDate(new Date().toISOString())}`, 20, 87);
     if (sessionStart && sessionEnd) {
-      doc.text(`Time: ${formatTime(sessionStart)} - ${formatTime(sessionEnd)}`, 20, 94);
+      doc.text(
+        `Time: ${formatTime(sessionStart)} - ${formatTime(sessionEnd)}`,
+        20,
+        94
+      );
     }
 
     // Summary
-    const presentCount = recognizedStudents.filter((s) => s.status === "Present").length;
-    const absentCount = recognizedStudents.filter((s) => s.status === "Absent").length;
-    const lateCount = recognizedStudents.filter((s) => s.status === "Late").length;
+    const presentCount = recognizedStudents.filter(
+      (s) => s.status === "Present"
+    ).length;
+    const absentCount = recognizedStudents.filter(
+      (s) => s.status === "Absent"
+    ).length;
+    const lateCount = recognizedStudents.filter(
+      (s) => s.status === "Late"
+    ).length;
 
     doc.setFont("times", "bold");
     doc.setFontSize(12);
@@ -213,24 +242,30 @@ const AttendanceSession = () => {
   };
 
   return (
-    <div className="p-6 bg-neutral-900 text-white min-h-screen">
+    <div className="relative min-h-screen bg-neutral-950 text-white p-8 overflow-hidden rounded-2xl">
+      {/* Background Glow */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
+
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-2">
-        <h2 className="text-3xl font-bold text-green-400 flex items-center gap-2">
+      <div className="relative z-10 mb-6 flex flex-col gap-2">
+        <h2 className="text-3xl font-extrabold flex items-center gap-2 text-transparent bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text">
           📋 Attendance Session
         </h2>
 
         {activeClass ? (
           <p className="text-gray-300 text-sm">
             Tracking attendance for{" "}
-            <span className="text-green-300 font-semibold">
+            <span className="text-emerald-300 font-semibold">
               {activeClass.subject_code} – {activeClass.subject_title}
             </span>{" "}
             with{" "}
-            <span className="text-green-400 font-semibold">
-              {activeClass.instructor_first_name} {activeClass.instructor_last_name}
+            <span className="text-emerald-400 font-semibold">
+              {activeClass.instructor_first_name}{" "}
+              {activeClass.instructor_last_name}
             </span>{" "}
-            | {activeClass.course}, Year {activeClass.year_level}, Section {activeClass.section}
+            | {activeClass.course}, Year {activeClass.year_level}, Section{" "}
+            {activeClass.section}
           </p>
         ) : lastClassId ? (
           <p className="text-yellow-400 text-sm font-medium italic">
@@ -240,24 +275,31 @@ const AttendanceSession = () => {
           <p className="text-gray-400 text-sm italic">No active session.</p>
         )}
 
-        <span className="inline-block bg-green-700/30 text-green-300 text-xs font-medium px-3 py-1 rounded-full mt-1 w-fit shadow">
+        <span className="inline-block bg-white/10 backdrop-blur-md border border-white/20 text-emerald-300 text-xs font-medium px-3 py-1 rounded-full mt-1 w-fit shadow">
           {formatDate(new Date().toISOString())}
         </span>
       </div>
 
       {/* Students List */}
-      <div className="bg-neutral-800 rounded-xl shadow-xl border border-neutral-700 p-6">
+      <div className="relative z-10 bg-white/10 backdrop-blur-lg rounded-2xl shadow-lg border border-white/10 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-green-300">Recognized Students</h3>
+          <h3 className="text-xl font-semibold text-emerald-300">
+            Recognized Students
+          </h3>
 
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-400">
               Total:{" "}
-              <span className="text-white font-bold">{recognizedStudents.length}</span>
+              <span className="text-white font-bold">
+                {recognizedStudents.length}
+              </span>
             </span>
             <button
               onClick={exportToPDF}
-              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg shadow transition"
+              className="px-4 py-2 rounded-lg text-white text-sm font-semibold
+                bg-gradient-to-r from-emerald-500 to-green-600 shadow-md
+                hover:from-green-600 hover:to-emerald-700 hover:shadow-emerald-500/30
+                transition-all duration-300"
             >
               Export PDF
             </button>
@@ -265,17 +307,20 @@ const AttendanceSession = () => {
         </div>
 
         {loading ? (
-          <p className="text-gray-400 italic animate-pulse">Loading attendance...</p>
+          <p className="text-gray-400 italic animate-pulse">
+            Loading attendance...
+          </p>
         ) : recognizedStudents.length === 0 ? (
           <div className="text-center py-6 text-gray-400 italic">
             No students recognized yet for today.
           </div>
         ) : (
-          <ul className="divide-y divide-neutral-700 max-h-[450px] overflow-y-auto custom-scroll">
+          <ul className="divide-y divide-white/10 max-h-[450px] overflow-y-auto custom-scroll">
             {recognizedStudents.map((s, idx) => (
               <li
                 key={`${s.student_id}-${idx}`}
-                className="flex items-center justify-between py-3 px-3 hover:bg-neutral-700/40 rounded-md transition"
+                className="flex items-center justify-between py-3 px-3 
+                  hover:bg-white/5 rounded-lg transition-all duration-300"
               >
                 <div>
                   <p className="font-medium text-white">
@@ -285,18 +330,23 @@ const AttendanceSession = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {/* Gradient Glass Badge */}
                   <span
-                    className={`px-3 py-1 text-xs font-semibold rounded-full shadow ${
-                      s.status === "Present"
-                        ? "bg-green-600 text-white"
-                        : s.status === "Late"
-                        ? "bg-yellow-400 text-black"
-                        : "bg-red-600 text-white"
-                    }`}
+                    className={`px-3 py-1 text-xs font-semibold rounded-full shadow 
+                      backdrop-blur-md border border-white/20
+                      ${
+                        s.status === "Present"
+                          ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white"
+                          : s.status === "Late"
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600 text-black"
+                          : "bg-gradient-to-r from-red-500 to-red-700 text-white"
+                      }`}
                   >
                     {s.status}
                   </span>
-                  <span className="text-sm text-gray-300 font-mono">{s.time}</span>
+                  <span className="text-sm text-gray-300 font-mono">
+                    {s.time}
+                  </span>
                 </div>
               </li>
             ))}

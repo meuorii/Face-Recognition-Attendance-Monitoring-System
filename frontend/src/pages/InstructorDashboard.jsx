@@ -59,7 +59,10 @@ const InstructorDashboard = () => {
 
   return (
     <ModalManager>
-      <div className="h-screen flex bg-neutral-900 text-white overflow-hidden">
+      <div className=" bg-neutral-950 min-h-screen rounded-xl text-white relative overflow-hidden">
+        {/* Background Glow */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
         {/* ✅ Fixed Sidebar */}
         <div className="hidden md:block fixed top-0 left-0 h-full w-64 bg-neutral-900 border-r border-green-500">
           <Sidebar
@@ -74,7 +77,7 @@ const InstructorDashboard = () => {
         {/* ✅ Main content with fixed Navbar and scrollable content */}
         <div className="flex-1 flex flex-col md:ml-64">
           {/* Fixed Navbar */}
-          <div className="fixed top-0 left-64 right-0 z-10 bg-neutral-900 border-b border-green-500">
+          <div className="fixed top-0 left-64 right-0 z-10">
             <Navbar
               instructor={instructor}
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -82,7 +85,7 @@ const InstructorDashboard = () => {
           </div>
 
           {/* Scrollable content area */}
-          <main className="flex-1 overflow-y-auto mt-16 p-6">
+          <main className="flex-1 overflow-y-auto mt-16 ">
             <div data-aos="fade-up">{renderContent()}</div>
           </main>
         </div>

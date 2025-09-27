@@ -33,7 +33,7 @@ const InstructorOverview = () => {
   const instructor = JSON.parse(localStorage.getItem("userData"));
   const token = localStorage.getItem("token");
 
-  const COLORS = ["#22c55e", "#facc15", "#ef4444"]; // green, yellow, red
+  const COLORS = ["url(#gradGreen)", "url(#gradYellow)", "url(#gradRed)"];
 
   useEffect(() => {
     if (!instructor?.instructor_id || !token) {
@@ -46,7 +46,6 @@ const InstructorOverview = () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
 
-        // ✅ Parallel requests
         const [overviewRes, trendRes, classRes] = await Promise.all([
           axios.get(
             `http://localhost:5000/api/instructor/${instructor.instructor_id}/overview`,
@@ -64,22 +63,19 @@ const InstructorOverview = () => {
 
         setOverviewData(overviewRes.data);
 
-        // 🔹 Use raw trend data directly (present, late, absent counts per day)
         const rawTrend = trendRes.data || [];
-        const formattedTrend = rawTrend.map((t) => ({
-          date: t.date, // backend already provides date
-          present: t.present || 0,
-          late: t.late || 0,
-          absent: t.absent || 0,
-        }));
-        setAttendanceTrend(formattedTrend);
+        setAttendanceTrend(
+          rawTrend.map((t) => ({
+            date: t.date,
+            present: t.present || 0,
+            late: t.late || 0,
+            absent: t.absent || 0,
+          }))
+        );
 
         setClassSummary(classRes.data);
       } catch (err) {
-        console.error(
-          "❌ Failed to load overview:",
-          err.response?.data || err.message
-        );
+        console.error("❌ Failed to load overview:", err.response?.data || err.message);
         toast.error("Failed to load overview data.");
       } finally {
         setLoading(false);
@@ -90,164 +86,224 @@ const InstructorOverview = () => {
   }, [instructor?.instructor_id, token]);
 
   if (loading) {
-    return (
-      <div className="p-6 text-center text-gray-400">
-        Loading instructor overview...
-      </div>
-    );
+    return <div className="p-6 text-center text-gray-400">Loading instructor overview...</div>;
   }
 
   if (!overviewData) {
-    return (
-      <div className="p-6 text-center text-red-400">
-        Failed to load overview data.
-      </div>
-    );
+    return <div className="p-6 text-center text-red-400">Failed to load overview data.</div>;
   }
 
   return (
-    <div className="p-6 bg-neutral-900 min-h-screen rounded-xl text-white">
+    <div className="p-8 bg-neutral-950 min-h-screen rounded-xl text-white relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
+
       {/* Header */}
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-green-400">
-        <FaChalkboardTeacher /> Instructor Overview
+      <h2 className="relative z-10 text-2xl font-bold mb-6 flex items-center gap-2 
+        text-transparent bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text">
+        <FaChalkboardTeacher className="text-emerald-400 text-2xl" />
+        Instructor Overview
       </h2>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
-        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
-          <FaChalkboardTeacher className="text-green-400 text-3xl" />
-          <div>
-            <p className="text-gray-400 text-sm">Total Classes</p>
-            <h3 className="text-xl font-semibold">
-              {overviewData.totalClasses}
-            </h3>
+      <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
+        {[
+          { icon: <FaChalkboardTeacher />, label: "Total Classes", value: overviewData.totalClasses },
+          { icon: <FaUsers />, label: "Total Students", value: overviewData.totalStudents },
+          { icon: <FaCalendarAlt />, label: "Active Sessions", value: overviewData.activeSessions },
+          { icon: <FaCheckCircle />, label: "Present", value: overviewData.present || 0 },
+          { icon: <FaClock />, label: "Late", value: overviewData.late || 0 },
+        ].map((stat, idx) => (
+          <div
+            key={idx}
+            className="bg-white/10 backdrop-blur-lg p-5 rounded-xl shadow-lg border border-white/10 
+            hover:scale-[1.03] hover:shadow-emerald-500/30 transition-all duration-300 flex items-center gap-4"
+          >
+            <div className="text-emerald-400 text-3xl">{stat.icon}</div>
+            <div>
+              <p className="text-gray-400 text-sm">{stat.label}</p>
+              <h3 className="text-xl font-semibold">{stat.value}</h3>
+            </div>
           </div>
-        </div>
-        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
-          <FaUsers className="text-green-400 text-3xl" />
-          <div>
-            <p className="text-gray-400 text-sm">Total Students</p>
-            <h3 className="text-xl font-semibold">
-              {overviewData.totalStudents}
-            </h3>
-          </div>
-        </div>
-        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
-          <FaCalendarAlt className="text-green-400 text-3xl" />
-          <div>
-            <p className="text-gray-400 text-sm">Active Sessions</p>
-            <h3 className="text-xl font-semibold">
-              {overviewData.activeSessions}
-            </h3>
-          </div>
-        </div>
-        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
-          <FaCheckCircle className="text-green-400 text-3xl" />
-          <div>
-            <p className="text-gray-400 text-sm">Present</p>
-            <h3 className="text-xl font-semibold">
-              {overviewData.present || 0}
-            </h3>
-          </div>
-        </div>
-        <div className="bg-neutral-800 p-5 rounded-xl shadow flex items-center gap-4">
-          <FaClock className="text-yellow-400 text-3xl" />
-          <div>
-            <p className="text-gray-400 text-sm">Late</p>
-            <h3 className="text-xl font-semibold">{overviewData.late || 0}</h3>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Attendance Rate Progress */}
-      <div className="bg-neutral-800 p-5 rounded-xl shadow mb-10">
-        <p className="text-gray-400 text-sm mb-1">Attendance Rate</p>
-        <div className="w-full bg-neutral-700 rounded-full h-3">
+      {/* Attendance Rate */}
+      <div className="relative z-10 bg-white/10 backdrop-blur-lg p-5 rounded-xl shadow-lg border border-white/10 mb-10">
+        <p className="text-gray-400 text-sm mb-2">Attendance Rate</p>
+
+        {/* ✅ Progress Bar with Dynamic Gradient */}
+        <div className="w-full bg-neutral-700 rounded-full h-3 overflow-hidden">
           <div
-            className="bg-green-500 h-3 rounded-full"
+            className={`h-3 rounded-full transition-all duration-700 ${
+              overviewData.attendanceRate < 50
+                ? "bg-gradient-to-r from-red-500 via-red-600 to-red-700"
+                : overviewData.attendanceRate < 80
+                ? "bg-gradient-to-r from-yellow-400 via-orange-500 to-yellow-600"
+                : "bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600"
+            }`}
             style={{ width: `${overviewData.attendanceRate}%` }}
           />
         </div>
-        <p className="text-right text-sm font-semibold mt-1">
+
+        {/* ✅ Dynamic Text Color */}
+        <p
+          className={`text-right text-sm font-semibold mt-2 ${
+            overviewData.attendanceRate < 50
+              ? "text-red-400"
+              : overviewData.attendanceRate < 80
+              ? "text-yellow-400"
+              : "text-green-400"
+          }`}
+        >
           {overviewData.attendanceRate}%
         </p>
       </div>
 
-      {/* Middle Section: Attendance Trend + Attendance Pie */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+      {/* Charts */}
+      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
         {/* Attendance Trend */}
-        <div className="bg-neutral-800 p-6 rounded-xl shadow">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-green-400">
+        <div className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-emerald-400">
             <FaChartLine /> Attendance Trend
           </h3>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={260}>
             <LineChart data={attendanceTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="date" stroke="#888" />
-              <YAxis stroke="#888" />
-              <Tooltip />
+              {/* ✅ Gradient defs */}
+              <defs>
+                <linearGradient id="gradPresent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="gradLate" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#facc15" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#facc15" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id="gradAbsent" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#ef4444" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+
+              {/* ✅ Grid + Axis */}
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="date" stroke="#9ca3af" tick={{ fill: "#9ca3af" }} />
+              <YAxis stroke="#9ca3af" tick={{ fill: "#9ca3af" }} />
+
+              {/* ✅ Glass tooltip */}
+              <Tooltip
+                contentStyle={{
+                  background: "rgba(17, 24, 39, 0.85)", // dark glass
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "8px",
+                }}
+                itemStyle={{ color: "#fff" }}
+                labelStyle={{ color: "#a3e635", fontWeight: "600" }}
+              />
+
+              {/* ✅ Smooth glowing lines */}
               <Line
                 type="monotone"
                 dataKey="present"
-                stroke="#22c55e"
-                strokeWidth={2}
-                name="Present"
+                stroke="url(#gradPresent)"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#22c55e", stroke: "#111" }}
+                activeDot={{ r: 6, fill: "#22c55e" }}
               />
               <Line
                 type="monotone"
                 dataKey="late"
-                stroke="#facc15"
-                strokeWidth={2}
-                name="Late"
+                stroke="url(#gradLate)"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#facc15", stroke: "#111" }}
+                activeDot={{ r: 6, fill: "#facc15" }}
               />
               <Line
                 type="monotone"
                 dataKey="absent"
-                stroke="#ef4444"
-                strokeWidth={2}
-                name="Absent"
+                stroke="url(#gradAbsent)"
+                strokeWidth={3}
+                dot={{ r: 4, fill: "#ef4444", stroke: "#111" }}
+                activeDot={{ r: 6, fill: "#ef4444" }}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
 
         {/* Attendance Distribution */}
-        <div className="bg-neutral-800 p-6 rounded-xl shadow">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-green-400">
+        <div className="p-6 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md shadow-lg">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-emerald-400">
             <FaClipboardList /> Attendance Distribution
           </h3>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={260}>
             <PieChart>
+              {/* ✅ Gradient definitions */}
+              <defs>
+                <linearGradient id="gradGreen" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#16a34a" stopOpacity={0.7} />
+                </linearGradient>
+                <linearGradient id="gradYellow" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#facc15" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#eab308" stopOpacity={0.7} />
+                </linearGradient>
+                <linearGradient id="gradRed" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#dc2626" stopOpacity={0.7} />
+                </linearGradient>
+              </defs>
+
+              {/* ✅ Pie with gradient slices */}
               <Pie
                 data={[
-                  { name: "Present", value: overviewData.present || 0 },
-                  { name: "Late", value: overviewData.late || 0 },
-                  { name: "Absent", value: overviewData.absent || 0 },
+                  { name: "Present", value: overviewData.present || 0, fill: "url(#gradGreen)" },
+                  { name: "Late", value: overviewData.late || 0, fill: "url(#gradYellow)" },
+                  { name: "Absent", value: overviewData.absent || 0, fill: "url(#gradRed)" },
                 ]}
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
-                label
+                outerRadius={95}
+                innerRadius={50} // ✅ donut style
+                paddingAngle={0}
                 dataKey="value"
+                labelLine={false}
+                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
               >
-                {COLORS.map((color, index) => (
-                  <Cell key={`cell-${index}`} fill={color} />
+                {[
+                  "url(#gradGreen)",
+                  "url(#gradYellow)",
+                  "url(#gradRed)",
+                ].map((fill, idx) => (
+                  <Cell key={idx} fill={fill} stroke="rgba(255,255,255,0.3)" strokeWidth={1.5} />
                 ))}
               </Pie>
-              <Tooltip />
+
+              {/* ✅ Glassy tooltip */}
+              <Tooltip
+                contentStyle={{
+                  background: "rgba(17,24,39,0.85)", // dark glass
+                  backdropFilter: "blur(8px)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "8px",
+                }}
+                itemStyle={{ color: "#fff" }}
+                labelStyle={{ color: "#a3e635", fontWeight: 600 }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
       {/* Class Summary */}
-      <div className="bg-neutral-800 p-6 rounded-xl shadow">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-green-400">
+      <div className="relative z-10 bg-white/10 backdrop-blur-lg p-6 rounded-xl shadow-lg border border-white/10">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-emerald-400">
           <FaChalkboardTeacher /> My Classes
         </h3>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm text-left text-gray-300">
-            <thead className="bg-neutral-700 text-green-400">
+            <thead className="bg-neutral-700/50 text-emerald-400">
               <tr>
                 <th className="px-4 py-3">Code</th>
                 <th>Title</th>
@@ -257,31 +313,20 @@ const InstructorOverview = () => {
               </tr>
             </thead>
             <tbody>
-              {classSummary.map((c, index) => (
+              {classSummary.map((c, idx) => (
                 <tr
-                  key={index}
-                  className="border-b border-neutral-700 hover:bg-neutral-700/40 transition"
+                  key={idx}
+                  className="border-b border-neutral-700 hover:bg-white/5 transition"
                 >
                   <td className="px-4 py-3">{c.subject_code}</td>
                   <td>{c.subject_title}</td>
                   <td>{c.section}</td>
                   <td>
                     {c.schedule_blocks?.length > 0
-                      ? c.schedule_blocks
-                          .map(
-                            (b) =>
-                              `${b.days?.join(", ")} • ${b.start}-${b.end}`
-                          )
-                          .join(" | ")
+                      ? c.schedule_blocks.map((b) => `${b.days?.join(", ")} • ${b.start}-${b.end}`).join(" | ")
                       : "N/A"}
                   </td>
-                  <td
-                    className={
-                      c.is_attendance_active
-                        ? "text-green-400 font-semibold"
-                        : "text-red-400 font-semibold"
-                    }
-                  >
+                  <td className={c.is_attendance_active ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
                     {c.is_attendance_active ? "Active" : "Inactive"}
                   </td>
                 </tr>

@@ -24,14 +24,13 @@ const StudentsInClass = () => {
     try {
       const data = await getClassesByInstructor(instructor.instructor_id);
       setClasses(data || []);
-      // Preselect first class if you like
       if (data?.length && !selectedClass) {
         setSelectedClass(data[0]._id);
         fetchStudents(data[0]._id);
       }
     } catch (err) {
       console.error("Failed to load classes:", err);
-      toast.error("Failed to load classes.");
+      toast.error("⚠ Failed to load classes.");
     } finally {
       setLoadingClasses(false);
     }
@@ -45,7 +44,7 @@ const StudentsInClass = () => {
       setStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Failed to fetch students:", err);
-      toast.error("Failed to fetch students.");
+      toast.error("⚠ Failed to fetch students.");
     } finally {
       setLoadingStudents(false);
     }
@@ -76,30 +75,31 @@ const StudentsInClass = () => {
   }, [students, query]);
 
   return (
-    <div className="bg-neutral-900 p-6 md:p-8 rounded-2xl border border-neutral-700 shadow-lg">
+    <div className="p-6 md:p-8 relative z-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-neutral-800 border border-neutral-700">
-            <FaUserGraduate className="text-green-400" />
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <FaUserGraduate className="text-green-400 text-xl" />
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-green-400">
+          <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
             Students in Class
           </h2>
         </div>
 
         {/* Count badge */}
-        <span className="text-sm px-3 py-1 rounded-full border border-neutral-700 bg-neutral-800 text-gray-300">
-          {filtered.length} {filtered.length === 1 ? "student" : "students"}
+        <span className="text-sm px-4 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold shadow-lg">
+          {filtered.length} {filtered.length === 1 ? "Student" : "Students"}
         </span>
       </div>
 
       {/* Class meta + controls */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
+      <div className="grid gap-6 md:grid-cols-3 mb-8">
         <div className="md:col-span-2">
-          <label className="block text-sm text-gray-400 mb-2">Select Class</label>
+          <label className="block text-sm text-gray-300 mb-2">Select Class</label>
           <select
-            className="w-full bg-neutral-800 border border-neutral-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+            className="w-full bg-neutral-900/60 border border-white/10 text-white px-4 py-3 rounded-lg 
+                       focus:outline-none focus:ring-2 focus:ring-emerald-400 transition-all duration-300"
             onChange={(e) => handleSelectClass(e.target.value)}
             value={selectedClass}
             disabled={loadingClasses}
@@ -115,9 +115,9 @@ const StudentsInClass = () => {
 
         {/* Quick search */}
         <div>
-          <label className="block text-sm text-gray-400 mb-2">Search</label>
-          <div className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-3">
-            <FaSearch className="text-neutral-500" />
+          <label className="block text-sm text-gray-300 mb-2">Search</label>
+          <div className="flex items-center gap-2 bg-neutral-900/60 border border-white/10 rounded-lg px-3 focus-within:ring-2 focus-within:ring-emerald-400 transition-all duration-300">
+            <FaSearch className="text-neutral-400" />
             <input
               type="text"
               value={query}
@@ -130,12 +130,14 @@ const StudentsInClass = () => {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-neutral-700">
+      <div className="overflow-x-auto rounded-xl border border-white/10 shadow-lg backdrop-blur-sm">
         {loadingStudents ? (
-          <div className="px-4 py-6 text-green-400">Loading students…</div>
+          <div className="px-6 py-10 text-center text-emerald-400 animate-pulse">
+            Loading students…
+          </div>
         ) : selectedClass && filtered.length > 0 ? (
           <table className="min-w-full text-sm">
-            <thead className="sticky top-0 bg-neutral-800 text-green-400 z-10">
+            <thead className="sticky top-0 bg-gradient-to-r from-neutral-900/80 to-neutral-800/80 text-emerald-400 z-10">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Student ID</th>
                 <th className="px-4 py-3 text-left font-semibold">Full Name</th>
@@ -149,9 +151,9 @@ const StudentsInClass = () => {
                 return (
                   <tr
                     key={`${s.student_id || "row"}-${i}`}
-                    className={`${
-                      i % 2 ? "bg-neutral-900" : "bg-neutral-800/60"
-                    } hover:bg-neutral-700/60 transition-colors`}
+                    className={`transition-colors ${
+                      i % 2 ? "bg-neutral-900/40" : "bg-neutral-800/40"
+                    } hover:bg-emerald-500/10`}
                   >
                     <td className="px-4 py-3 text-gray-200">{s.student_id || "—"}</td>
                     <td className="px-4 py-3 text-white font-medium">{fullName || "—"}</td>
@@ -163,12 +165,12 @@ const StudentsInClass = () => {
             </tbody>
           </table>
         ) : selectedClass ? (
-          <div className="px-6 py-10 text-center">
-            <div className="text-3xl mb-2">🗂️</div>
+          <div className="px-6 py-12 text-center">
+            <div className="text-4xl mb-3">🗂️</div>
             <p className="text-gray-300 font-medium">No students in this class yet</p>
           </div>
         ) : (
-          <div className="px-6 py-10 text-center text-gray-400">
+          <div className="px-6 py-12 text-center text-gray-400">
             Select a class to view the roster.
           </div>
         )}
