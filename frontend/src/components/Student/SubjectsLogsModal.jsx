@@ -23,18 +23,22 @@ const SubjectLogsModal = ({ subject, logs, onClose, formatDate }) => {
   const total = subjectLogs.length;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-neutral-900 border border-neutral-700 rounded-2xl shadow-xl p-6 w-[90%] max-w-2xl">
+    <div className="fixed inset-0 flex items-center justify-center z-50 px-4 sm:px-6 md:px-8">
+      {/* Background overlay */}
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-5xl max-h-[95vh] overflow-y-auto bg-gradient-to-br from-neutral-900/95 via-neutral-950/95 to-black/95 border border-emerald-600/30 rounded-2xl shadow-2xl p-6 animate-fadeIn">
         {/* Header */}
-        <div className="flex justify-between items-start mb-5 border-b border-neutral-700 pb-3">
+        <div className="flex justify-between items-start mb-5 border-b border-emerald-600/30 pb-3">
           <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <FaList className="text-green-400" />
+            <h3 className="text-lg sm:text-xl font-bold flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
+              <FaList className="text-emerald-400" />
               Attendance Logs
             </h3>
-            <p className="text-gray-400 text-sm mt-1">
-              Showing all attendance records for{" "}
-              <span className="text-green-400 font-semibold">
+            <p className="text-gray-400 text-xs sm:text-sm mt-1">
+              Showing records for{" "}
+              <span className="font-semibold bg-gradient-to-r from-emerald-400 via-green-500 to-green-600 bg-clip-text text-transparent">
                 {subject.subject_code} {subject.subject_title}
               </span>
             </p>
@@ -48,46 +52,66 @@ const SubjectLogsModal = ({ subject, logs, onClose, formatDate }) => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-neutral-800 p-4 rounded-xl text-center border border-neutral-700 shadow-sm">
-            <p className="text-gray-400 text-sm">Total Logs</p>
-            <p className="text-2xl font-bold text-white">{total}</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          {/* Total Logs */}
+          <div className="relative group bg-gradient-to-br from-slate-800/70 to-neutral-900/70 p-4 sm:p-6 rounded-xl sm:rounded-2xl text-center border border-white/10 shadow-lg transition hover:scale-[1.02]">
+            <p className="text-gray-400 text-xs sm:text-sm font-medium">
+              Total Logs
+            </p>
+            <p className="text-2xl sm:text-4xl font-extrabold text-white mt-1">
+              {total}
+            </p>
+            <span className="text-xs text-gray-500">All records</span>
           </div>
-          <div className="bg-neutral-800 p-4 rounded-xl text-center border border-neutral-700 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-green-400">
-              <FaCheckCircle />
-              <p className="text-gray-300">Present</p>
+
+          {/* Present */}
+          <div className="relative group bg-gradient-to-br from-emerald-600/20 to-green-700/20 p-4 sm:p-6 rounded-xl sm:rounded-2xl text-center border border-emerald-500/20 shadow-lg transition hover:scale-[1.02]">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 text-emerald-400 mb-1 sm:mb-2 text-base sm:text-lg">
+              <FaCheckCircle className="text-lg sm:text-2xl" />
+              <p>Present</p>
             </div>
-            <p className="text-2xl font-bold text-green-400 mt-1">
+            <p className="text-2xl sm:text-4xl font-extrabold text-emerald-400">
               {presentCount}
             </p>
           </div>
-          <div className="bg-neutral-800 p-4 rounded-xl text-center border border-neutral-700 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-red-400">
-              <FaTimesCircle />
-              <p className="text-gray-300">Absent</p>
+
+          {/* Absent */}
+          <div className="relative group bg-gradient-to-br from-red-600/20 to-rose-700/20 p-4 sm:p-6 rounded-xl sm:rounded-2xl text-center border border-red-500/20 shadow-lg transition hover:scale-[1.02]">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 text-red-400 mb-1 sm:mb-2 text-base sm:text-lg">
+              <FaTimesCircle className="text-lg sm:text-2xl" />
+              <p>Absent</p>
             </div>
-            <p className="text-2xl font-bold text-red-400 mt-1">{absentCount}</p>
+            <p className="text-2xl sm:text-4xl font-extrabold text-red-400">
+              {absentCount}
+            </p>
           </div>
-          <div className="bg-neutral-800 p-4 rounded-xl text-center border border-neutral-700 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-yellow-400">
-              <FaClock />
-              <p className="text-gray-300">Late</p>
+
+          {/* Late */}
+          <div className="relative group bg-gradient-to-br from-yellow-500/20 to-amber-600/20 p-4 sm:p-6 rounded-xl sm:rounded-2xl text-center border border-yellow-500/20 shadow-lg transition hover:scale-[1.02]">
+            <div className="flex items-center justify-center gap-1 sm:gap-2 text-yellow-400 mb-1 sm:mb-2 text-base sm:text-lg">
+              <FaClock className="text-lg sm:text-2xl" />
+              <p>Late</p>
             </div>
-            <p className="text-2xl font-bold text-yellow-400 mt-1">
+            <p className="text-2xl sm:text-4xl font-extrabold text-yellow-400">
               {lateCount}
             </p>
           </div>
         </div>
 
-        {/* Logs Table */}
-        <div className="overflow-x-auto max-h-96 overflow-y-auto border border-neutral-700 rounded-xl shadow-sm">
-          <table className="min-w-full text-sm text-left text-gray-300">
-            <thead className="bg-neutral-800 text-green-400 sticky top-0 z-10">
+        {/* Logs Table (desktop/tablet) */}
+        <div className="hidden sm:block overflow-y-auto max-h-96 border border-white/10 rounded-xl shadow-xl backdrop-blur-md">
+          <table className="w-full text-sm text-left text-gray-300">
+            <thead className="bg-gradient-to-r from-emerald-600/30 to-green-700/30 text-emerald-400 sticky top-0 z-10 shadow-md">
               <tr>
-                <th className="px-6 py-3 whitespace-nowrap">Date</th>
-                <th className="px-6 py-3 whitespace-nowrap">Status</th>
-                <th className="px-6 py-3 whitespace-nowrap">Time</th>
+                <th className="px-4 sm:px-6 py-3 font-semibold tracking-wide border-b border-emerald-500/20">
+                  Date
+                </th>
+                <th className="px-4 sm:px-6 py-3 font-semibold tracking-wide border-b border-emerald-500/20">
+                  Status
+                </th>
+                <th className="px-4 sm:px-6 py-3 font-semibold tracking-wide border-b border-emerald-500/20">
+                  Time
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -95,18 +119,18 @@ const SubjectLogsModal = ({ subject, logs, onClose, formatDate }) => {
                 subjectLogs.map((log, idx) => (
                   <tr
                     key={idx}
-                    className={`${
+                    className={`transition ${
                       idx % 2 === 0 ? "bg-neutral-900/60" : "bg-neutral-800/50"
-                    } border-b border-neutral-700 hover:bg-neutral-700/50 transition`}
+                    } border-b border-white/5 hover:bg-gradient-to-r hover:from-emerald-800/20 hover:to-green-700/10`}
                   >
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3 font-medium text-gray-200">
                       {formatDate(log.date)}
                     </td>
-                    <td className="px-6 py-3">
+                    <td className="px-4 sm:px-6 py-3">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        className={`inline-flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-semibold shadow-md ${
                           log.status === "Present"
-                            ? "bg-green-500/20 text-green-400"
+                            ? "bg-emerald-500/20 text-emerald-400"
                             : log.status === "Late"
                             ? "bg-yellow-500/20 text-yellow-400"
                             : "bg-red-500/20 text-red-400"
@@ -115,23 +139,54 @@ const SubjectLogsModal = ({ subject, logs, onClose, formatDate }) => {
                         {log.status}
                       </span>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3 text-gray-300">
                       {log.time || "—"}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td
-                    colSpan="3"
-                    className="text-center py-6 text-gray-500 italic"
-                  >
-                    No logs available for this subject
+                  <td colSpan="3" className="py-8 text-center text-gray-500">
+                    No logs available
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="sm:hidden space-y-4">
+          {subjectLogs.length > 0 ? (
+            subjectLogs.map((log, idx) => (
+              <div
+                key={idx}
+                className="p-4 rounded-lg bg-neutral-800/60 border border-white/10 shadow-sm"
+              >
+                <p className="text-gray-200 text-sm font-medium">
+                  {formatDate(log.date)}
+                </p>
+                <p
+                  className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                    log.status === "Present"
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : log.status === "Late"
+                      ? "bg-yellow-500/20 text-yellow-400"
+                      : "bg-red-500/20 text-red-400"
+                  }`}
+                >
+                  {log.status}
+                </p>
+                <p className="text-gray-400 text-xs mt-2">
+                  Time: {log.time || "—"}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="text-gray-500 italic text-center">
+              No logs available for this subject
+            </p>
+          )}
         </div>
       </div>
     </div>

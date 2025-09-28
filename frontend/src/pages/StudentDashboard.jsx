@@ -30,7 +30,7 @@ const StudentDashboard = () => {
   const studentName = student?.first_name || "Student";
 
   return (
-    <div className="flex bg-neutral-900 text-white min-h-screen">
+    <div className="flex bg-neutral-950 text-white min-h-screen">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 h-screen sticky top-0 bg-gray-900 border-r border-green-600 z-30">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -63,7 +63,7 @@ const StudentDashboard = () => {
           studentName={studentName}
         />
 
-        <main className="flex-1 p-4 md:p-6 pt-6 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto">
           {activeTab === "overview" && <StudentOverview />} {/* ✅ New Overview Tab */}
           {activeTab === "assigned" && <AssignedSubjects />}
           {activeTab === "schedule" && (

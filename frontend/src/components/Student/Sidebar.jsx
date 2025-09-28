@@ -17,24 +17,30 @@ const Sidebar = ({ activeTab, setActiveTab, onClose }) => {
         setActiveTab(tab);
         onClose?.(); // auto-close on mobile if defined
       }}
-      className={`text-left px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
-        activeTab === tab
-          ? "bg-green-500 text-white shadow"
-          : "hover:bg-neutral-700"
-      }`}
+      className={`relative w-full text-left px-4 py-3 rounded-lg font-medium transition-all duration-300 overflow-hidden
+        ${
+          activeTab === tab
+            ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg"
+            : "text-gray-300 hover:bg-gradient-to-r hover:from-neutral-800 hover:to-neutral-700 hover:text-white"
+        }`}
     >
-      {label}
+      <span className="relative z-10">{label}</span>
+      {activeTab === tab && (
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-600 opacity-20 blur-lg rounded-lg" />
+      )}
     </button>
   );
 
   return (
-    <aside className="w-full md:w-64 h-full bg-neutral-900 text-gray-200 px-6 py-6 border-r border-green-600 shadow-md flex flex-col">
+    <aside className="w-full md:w-64 h-full bg-neutral-950/90 backdrop-blur-lg text-gray-200 px-6 py-6 border-r border-white/10 shadow-xl flex flex-col">
       {/* Header with title and close (visible on mobile) */}
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-green-400 text-xl font-bold">Student Panel</h2>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent text-xl font-extrabold tracking-wide">
+          Student Panel
+        </h2>
         <button
           onClick={onClose}
-          className="text-white text-2xl md:hidden"
+          className="text-gray-400 text-2xl md:hidden hover:text-white transition"
           aria-label="Close sidebar"
         >
           ×
@@ -43,7 +49,7 @@ const Sidebar = ({ activeTab, setActiveTab, onClose }) => {
 
       {/* Navigation Items */}
       <nav className="flex flex-col gap-3">
-        {navItem("overview", "Overview")}         {/* ✅ NEW */}
+        {navItem("overview", "Overview")}
         {navItem("assigned", "Assigned Subjects")}
         {navItem("schedule", "Weekly Schedule")}
         {navItem("history", "Attendance History")}
@@ -54,7 +60,7 @@ const Sidebar = ({ activeTab, setActiveTab, onClose }) => {
       {/* Logout */}
       <button
         onClick={handleLogout}
-        className="mt-6 px-4 py-2 text-left text-sm text-red-400 hover:text-red-500 transition"
+        className="mt-6 px-4 py-2 text-left text-sm font-semibold text-red-400 hover:text-white hover:bg-gradient-to-r hover:from-red-600 hover:to-red-700 rounded-lg transition-all duration-300"
       >
         Logout
       </button>

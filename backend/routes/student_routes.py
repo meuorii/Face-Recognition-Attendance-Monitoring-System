@@ -389,7 +389,7 @@ def student_overview(student_id):
         return jsonify({"error": str(e)}), 500
 
 
-# ✅ Attendance Trend (daily)
+# ✅ Attendance Trend (daily with present, late, absent counts)
 @student_bp.route("/<string:student_id>/overview/attendance-trend", methods=["GET"])
 @jwt_required()
 def student_attendance_trend(student_id):
@@ -398,13 +398,31 @@ def student_attendance_trend(student_id):
             {"$match": {"students.student_id": student_id}},
             {"$unwind": "$students"},
             {"$match": {"students.student_id": student_id}},
-            {"$group": {
-                "_id": "$date",
-                "rate": {"$avg": {"$cond": [{"$eq": ["$students.status", "Present"]}, 100, 0]}}
-            }},
-            {"$sort": {"_id": 1}}
+            {
+                "$group": {
+                    "_id": "$date",
+                    "present": {
+                        "$sum": {
+                            "$cond": [{"$eq": ["$students.status", "Present"]}, 1, 0]
+                        }
+                    },
+                    "late": {
+                        "$sum": {
+                            "$cond": [{"$eq": ["$students.status", "Late"]}, 1, 0]
+                        }
+                    },
+                    "absent": {
+                        "$sum": {
+                            "$cond": [{"$eq": ["$students.status", "Absent"]}, 1, 0]
+                        }
+                    },
+                }
+            },
+            {"$sort": {"_id": 1}},
         ]
+
         trend = list(db["attendance_logs"].aggregate(pipeline))
+
         return jsonify(trend), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
