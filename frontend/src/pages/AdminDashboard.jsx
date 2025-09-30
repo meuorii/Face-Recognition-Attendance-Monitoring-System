@@ -29,7 +29,7 @@ const AdminDashboard = () => {
 }, [navigate]);
 
   return (
-    <div className="flex bg-neutral-900 text-white min-h-screen">
+    <div className="flex bg-neutral-950 text-white min-h-screen">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 h-screen sticky top-0 bg-gray-900 border-r border-green-600 z-30">
         <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -58,22 +58,26 @@ const AdminDashboard = () => {
       {/* Main Area */}
       <div className="flex-1 flex flex-col overflow-hidden min-h-screen">
         {/* Navbar */}
-        <header className="sticky top-0 z-20 bg-neutral-900/80 backdrop-blur border-b border-green-600">
-          <div className="flex items-center justify-between px-4 py-3">
-            <div className="text-xl md:text-2xl font-bold">
-              Hi,{" "}
-              <span className="text-green-400">
+        <header className="sticky top-0 z-20 bg-neutral-950 backdrop-blur-lg border-b border-emerald-500/30 shadow-lg">
+          <div className="relative flex items-center justify-between px-4 py-3">
+            {/* Subtle Glow Overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-transparent to-green-600/5 opacity-70 blur-xl pointer-events-none"></div>
+
+            {/* Greeting */}
+            <div className="relative text-xl md:text-2xl font-extrabold tracking-tight">
+              Hi,&nbsp;
+              <span className="bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 bg-clip-text text-transparent animate-gradient-x">
                 {admin?.first_name ||
-                  (admin?.full_name
-                    ? admin.full_name.split(" ")[0]
-                    : "Admin")}
+                  (admin?.full_name ? admin.full_name.split(" ")[0] : "Admin")}
               </span>
               !
             </div>
 
             {/* Hamburger (mobile) */}
             <button
-              className="md:hidden p-2 rounded-lg bg-neutral-800 border border-neutral-700 cursor-pointer"
+              className="relative md:hidden p-2 rounded-lg bg-neutral-800/80 border border-neutral-700 text-white 
+                        hover:border-emerald-500 hover:shadow-[0_0_10px_rgba(34,197,94,0.4)] 
+                        transition-all duration-300"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open sidebar"
             >
@@ -81,7 +85,7 @@ const AdminDashboard = () => {
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="currentColor"
-                className="h-6 w-6 text-white"
+                className="h-6 w-6"
               >
                 <path d="M3.75 6.75h16.5a.75.75 0 000-1.5H3.75a.75.75 0 000 1.5zm16.5 5.25H3.75a.75.75 0 000 1.5h16.5a.75.75 0 000-1.5zm0 6.75H3.75a.75.75 0 000-1.5h16.5a.75.75 0 000-1.5z" />
               </svg>
@@ -89,8 +93,9 @@ const AdminDashboard = () => {
           </div>
         </header>
 
+
         {/* Content */}
-        <main className="flex-1 p-4 md:p-6 pt-6 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto">
           {activeTab === "overview" && <AdminOverviewComponent />}
           {activeTab === "students" && <StudentManagementComponent />}
           {activeTab === "instructors" && <InstructorAssignmentComponent />}

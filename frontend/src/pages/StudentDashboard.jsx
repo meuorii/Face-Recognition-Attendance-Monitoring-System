@@ -31,6 +31,11 @@ const StudentDashboard = () => {
 
   return (
     <div className="flex bg-neutral-950 text-white min-h-screen">
+       <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-20 -left-20 w-[400px] h-[400px] bg-emerald-500/20 blur-3xl rounded-full"></div>
+        <div className="absolute bottom-0 right-0 w-[350px] h-[350px] bg-green-600/10 blur-3xl rounded-full"></div>
+      </div>
+
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 h-screen sticky top-0 bg-gray-900 border-r border-green-600 z-30">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />

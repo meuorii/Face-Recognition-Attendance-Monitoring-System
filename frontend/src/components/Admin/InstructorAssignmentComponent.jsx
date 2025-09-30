@@ -43,23 +43,28 @@ const InstructorAssignmentComponent = () => {
   );
 
   return (
-    <div className="bg-neutral-900 p-8 rounded-2xl shadow-lg border border-neutral-700 max-w-7xl mx-auto">
+    <div className="bg-neutral-950 
+                    backdrop-blur-xl border border-white/10 shadow-2xl 
+                    rounded-2xl p-12 space-y-8 max-w-7xl mx-auto animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-8">
-        <h2 className="text-white text-3xl font-bold tracking-tight flex items-center gap-2">
-          <FaChalkboardTeacher className="text-green-500" />
-          Instructor Assignment
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+        <h2 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
+          <FaChalkboardTeacher className="text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
+          <span className="bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 bg-clip-text text-transparent">
+            Instructor Assignment
+          </span>
         </h2>
 
         {/* Search */}
-        <div className="flex items-center bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 w-full sm:w-80">
+        <div className="flex items-center w-full sm:w-80 px-3 py-2 rounded-lg 
+                        bg-neutral-800/70 border border-white/10 shadow-inner">
           <FaSearch className="text-neutral-500 mr-2" />
           <input
             type="text"
             placeholder="Search instructors..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="bg-transparent outline-none text-sm text-white w-full"
+            className="bg-transparent outline-none text-sm text-white w-full placeholder-neutral-500"
           />
         </div>
       </div>
@@ -72,25 +77,41 @@ const InstructorAssignmentComponent = () => {
           {filteredInstructors.map((inst, idx) => (
             <div
               key={idx}
-              className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 hover:border-green-400 hover:shadow-lg hover:shadow-green-500/10 transition transform hover:-translate-y-1 flex flex-col"
+              className="group relative flex flex-col rounded-2xl p-6 
+                        bg-gradient-to-br from-neutral-900/70 to-neutral-950/70 
+                        backdrop-blur-xl border border-white/10 shadow-md
+                        hover:shadow-emerald-500/30 transition-all duration-500
+                        transform hover:scale-[1.03] hover:-translate-y-[4px]"
             >
+              {/* Glow Accent Line (top) */}
+              <div className="absolute top-0 left-0 w-full h-1 
+                              bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 
+                              opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-t-2xl"></div>
+
               {/* Name */}
-              <h3 className="text-xl font-bold text-white mb-2">
+              <h3 className="text-xl font-extrabold text-white mb-2 
+                            bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent
+                            group-hover:from-emerald-300 group-hover:to-green-400 transition-all duration-500">
                 {inst.first_name} {inst.last_name}
               </h3>
 
               {/* Email */}
               <p className="flex items-center gap-2 text-neutral-400 text-sm mb-6 truncate">
-                <FaEnvelope className="text-green-400" />
+                <FaEnvelope className="text-emerald-400 group-hover:scale-110 transition-transform duration-300" />
                 {inst.email}
               </p>
 
               {/* Assign Button */}
               <button
                 onClick={() => setSelectedInstructor(inst)}
-                className="mt-auto flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition"
+                className="mt-auto flex items-center justify-center gap-2 px-5 py-2.5 
+                          rounded-lg bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 
+                          text-white text-sm font-semibold shadow-md
+                          hover:from-emerald-500 hover:via-green-600 hover:to-emerald-700
+                          hover:shadow-lg hover:shadow-emerald-500/40
+                          transform hover:scale-105 transition-all duration-300"
               >
-                <FaUserPlus /> Assign to Class
+                <FaUserPlus className="text-sm" /> Assign to Class
               </button>
             </div>
           ))}
@@ -100,6 +121,7 @@ const InstructorAssignmentComponent = () => {
           No instructors found.
         </p>
       )}
+
 
       {/* Assign Instructor Modal */}
       {selectedInstructor && (

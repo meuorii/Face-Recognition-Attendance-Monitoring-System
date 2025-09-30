@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaUserPlus, FaBook } from "react-icons/fa";
+import { FaUserPlus, FaBook, FaTimes } from "react-icons/fa";
+import { createPortal } from "react-dom";
 
 const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
   const [classes, setClasses] = useState([]);
@@ -34,7 +35,9 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
 
   const toggleClassSelection = (classId) => {
     setSelectedClasses((prev) =>
-      prev.includes(classId) ? prev.filter((id) => id !== classId) : [...prev, classId]
+      prev.includes(classId)
+        ? prev.filter((id) => id !== classId)
+        : [...prev, classId]
     );
   };
 
@@ -74,25 +77,32 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md">
-      <div className="bg-neutral-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-neutral-800 overflow-hidden animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/70 backdrop-blur-lg animate-fadeIn">
+      <div className="w-full max-w-2xl rounded-2xl shadow-2xl border border-white/10 
+                      bg-gradient-to-br from-neutral-900/70 to-neutral-950/80 
+                      backdrop-blur-xl overflow-hidden animate-scaleIn flex flex-col">
+        
         {/* Header */}
-        <div className="p-6 border-b border-neutral-800 flex items-center justify-between">
-          <h3 className="text-2xl font-bold text-green-400 flex items-center gap-2">
+        <div className="p-5 border-b border-white/10 flex items-center justify-between 
+                        bg-gradient-to-r from-neutral-900 to-neutral-950 backdrop-blur-md">
+          <h3 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2 
+                         bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 
+                         bg-clip-text text-transparent drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]">
             <FaUserPlus /> Assign Instructor
           </h3>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-white transition"
+            className="p-2 rounded-full bg-neutral-800/60 hover:bg-rose-600/70 
+                       text-neutral-400 hover:text-white transition"
           >
-            ✕
+            <FaTimes />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-6">
-          <p className="text-neutral-300 mb-6">
+        <div className="p-6 flex-1 overflow-y-auto custom-scroll">
+          <p className="text-neutral-300 mb-6 text-sm sm:text-base">
             Assign{" "}
             <span className="font-semibold text-white">
               {instructor.first_name} {instructor.last_name}
@@ -103,24 +113,33 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
           {/* Classes List */}
           <div className="max-h-72 overflow-y-auto pr-1 grid gap-3">
             {classes.length > 0 ? (
-              classes.map((cls) => (
+              classes.map((cls, i) => (
                 <label
                   key={cls._id}
-                  className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer border transition group ${
-                    selectedClasses.includes(cls._id)
-                      ? "bg-green-800/20 border-green-500"
-                      : "bg-neutral-800 border-neutral-700 hover:bg-neutral-700/60"
-                  }`}
+                  className={`flex items-start gap-4 p-4 rounded-xl cursor-pointer border transition-all duration-300 
+                    ${
+                      selectedClasses.includes(cls._id)
+                        ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 border-emerald-400 shadow-md shadow-emerald-500/20 scale-[1.0]"
+                        : "bg-neutral-800/50 border-neutral-700 hover:bg-neutral-700/70"
+                    } animate-fadeInUp`}
+                  style={{ animationDelay: `${i * 70}ms` }}
                 >
                   <input
                     type="checkbox"
                     checked={selectedClasses.includes(cls._id)}
                     onChange={() => toggleClassSelection(cls._id)}
-                    className="h-5 w-5 accent-green-500 mt-1 rounded"
+                    className="h-5 w-5 rounded border border-emerald-500/40 accent-emerald-500
+                               checked:ring-2 checked:ring-emerald-400/60 checked:shadow-[0_0_8px_#10b981]"
                   />
                   <div className="flex flex-col">
                     <span className="text-white font-semibold flex items-center gap-2">
-                      <FaBook className="text-green-400" />
+                      <FaBook
+                        className={`${
+                          selectedClasses.includes(cls._id)
+                            ? "text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.6)]"
+                            : "text-neutral-400"
+                        }`}
+                      />
                       {cls.subject_code} – {cls.subject_title}
                     </span>
                     <span className="text-xs text-neutral-400">
@@ -138,22 +157,33 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-neutral-800 flex justify-end gap-3 bg-neutral-950">
+        <div className="p-5 border-t border-white/10 bg-neutral-900/50 backdrop-blur-md flex flex-col sm:flex-row justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-neutral-700 hover:bg-neutral-600 rounded-lg text-sm text-white font-medium transition"
+            className="w-full sm:w-auto px-5 py-2 rounded-lg 
+                      bg-gradient-to-r from-neutral-700 to-neutral-800 
+                      text-neutral-300 text-sm font-medium
+                      hover:from-neutral-600 hover:to-neutral-700 hover:text-white
+                      hover:shadow-md hover:shadow-neutral-400/10
+                      transform hover:scale-105 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleAssign}
-            className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm text-white font-semibold shadow-lg transition-transform hover:scale-105"
+            className="w-full sm:w-auto px-6 py-2 rounded-lg 
+                      bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 
+                      text-white text-sm font-semibold shadow-lg
+                      hover:from-emerald-500 hover:via-green-600 hover:to-emerald-700
+                      hover:shadow-[0_0_12px_rgba(16,185,129,0.5)]
+                      transform hover:scale-105 transition-all"
           >
             Assign Classes
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

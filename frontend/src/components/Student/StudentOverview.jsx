@@ -136,6 +136,7 @@ const StudentOverview = () => {
 
   return (
     <div className="p-8 bg-neutral-950 min-h-screen rounded-xl text-white">
+      
       {/* Header */}
       <h2 className="text-3xl font-extrabold mb-10 bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
         Student Overview

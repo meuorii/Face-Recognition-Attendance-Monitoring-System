@@ -33,6 +33,11 @@ const Sidebar = ({ activeTab, setActiveTab, onClose }) => {
 
   return (
     <aside className="w-full md:w-64 h-full bg-neutral-950/90 backdrop-blur-lg text-gray-200 px-6 py-6 border-r border-white/10 shadow-xl flex flex-col">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-y-0 left-0 w-full 
+                        bg-gradient-to-b from-emerald-500/10 via-green-500/5 to-emerald-600/10 
+                        blur-3xl opacity-40" />
+      </div>
       {/* Header with title and close (visible on mobile) */}
       <div className="flex items-center justify-between mb-8">
         <h2 className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent text-xl font-extrabold tracking-wide">
