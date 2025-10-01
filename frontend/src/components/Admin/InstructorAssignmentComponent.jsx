@@ -49,8 +49,8 @@ const InstructorAssignmentComponent = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
-          <FaChalkboardTeacher className="text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
-          <span className="bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 bg-clip-text text-transparent">
+          <FaChalkboardTeacher className="text-emerald-400" />
+          <span className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
             Instructor Assignment
           </span>
         </h2>
@@ -105,9 +105,9 @@ const InstructorAssignmentComponent = () => {
               <button
                 onClick={() => setSelectedInstructor(inst)}
                 className="mt-auto flex items-center justify-center gap-2 px-5 py-2.5 
-                          rounded-lg bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 
+                          rounded-lg bg-gradient-to-r from-emerald-400 to-green-500
                           text-white text-sm font-semibold shadow-md
-                          hover:from-emerald-500 hover:via-green-600 hover:to-emerald-700
+                          hover:from-emerald-500 to-green-600
                           hover:shadow-lg hover:shadow-emerald-500/40
                           transform hover:scale-105 transition-all duration-300"
               >

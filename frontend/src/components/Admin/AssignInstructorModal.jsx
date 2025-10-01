@@ -86,14 +86,15 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
         {/* Header */}
         <div className="p-5 border-b border-white/10 flex items-center justify-between 
                         bg-gradient-to-r from-neutral-900 to-neutral-950 backdrop-blur-md">
-          <h3 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2 
-                         bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-500 
-                         bg-clip-text text-transparent drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]">
-            <FaUserPlus /> Assign Instructor
+          <h3 className="text-xl sm:text-2xl font-extrabold flex items-center gap-2">
+            <FaUserPlus className="text-emerald-400" />
+            <span className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent">
+              Assign Instructor
+            </span>
           </h3>
           <button
             onClick={onClose}
-            className="p-2 rounded-full bg-neutral-800/60 hover:bg-rose-600/70 
+            className="p-2 rounded-full bg-neutral-800/60 hover:bg-rose-600 
                        text-neutral-400 hover:text-white transition"
           >
             <FaTimes />
@@ -172,9 +173,9 @@ const AssignInstructorModal = ({ instructor, onClose, onAssigned }) => {
           <button
             onClick={handleAssign}
             className="w-full sm:w-auto px-6 py-2 rounded-lg 
-                      bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-600 
+                      bg-gradient-to-r from-emerald-400 to-green-500
                       text-white text-sm font-semibold shadow-lg
-                      hover:from-emerald-500 hover:via-green-600 hover:to-emerald-700
+                      hover:from-emerald-500 hover:to-green-600
                       hover:shadow-[0_0_12px_rgba(16,185,129,0.5)]
                       transform hover:scale-105 transition-all"
           >
