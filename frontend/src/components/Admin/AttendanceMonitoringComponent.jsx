@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaDownload } from "react-icons/fa";
+import { FaDownload, FaUserCheck, FaCheckCircle, FaTimesCircle, FaClock, FaChartPie } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -155,29 +155,29 @@ const AttendanceMonitoringComponent = () => {
 
   // ✅ Breakdown calculation
   const calculateBreakdown = (groupBy) => {
-    const summary = {};
-    filteredLogs.forEach((log) => {
-      let key = "";
-      if (groupBy === "Student")
-        key = `${log.student_id} - ${log.first_name} ${log.last_name}`;
-      if (groupBy === "Subject")
-        key = `${log.subject_code} - ${log.subject_title}`;
-      if (groupBy === "Course") key = log.course;
+  const summary = {};
+  filteredLogs.forEach((log) => {
+    let key = "";
+    if (groupBy === "Student")
+      key = `${log.student_id} - ${log.first_name} ${log.last_name}`;
+    if (groupBy === "Subject")
+      key = `${log.subject_code} - ${log.subject_title}`;
+    if (groupBy === "Course") key = log.course;
 
-      if (!summary[key]) summary[key] = { Present: 0, Absent: 0, Late: 0, Total: 0 };
-      summary[key][log.status] = (summary[key][log.status] || 0) + 1;
-      summary[key].Total += 1;
-    });
+    if (!summary[key]) summary[key] = { Present: 0, Absent: 0, Late: 0, Total: 0 };
+    summary[key][log.status] = (summary[key][log.status] || 0) + 1;
+    summary[key].Total += 1;
+  });
 
-    return Object.entries(summary).map(([name, stats]) => ({
-      name,
-      ...stats,
-      Rate:
-        stats.Total > 0
-          ? ((stats.Present / stats.Total) * 100).toFixed(1) + "%"
-          : "0%",
-    }));
-  };
+  return Object.entries(summary).map(([name, stats]) => ({
+    name,
+    ...stats,
+    Rate:
+      stats.Total > 0
+        ? (((stats.Present + stats.Late) / stats.Total) * 100).toFixed(1) + "%"
+        : "0%",
+  }));
+};
 
   const breakdownData =
     breakdownView !== "None" ? calculateBreakdown(breakdownView) : [];
@@ -236,203 +236,472 @@ const AttendanceMonitoringComponent = () => {
   };
 
   return (
-    <div className="bg-neutral-900 p-8 rounded-2xl shadow-lg border border-neutral-700 max-w-7xl mx-auto space-y-8">
+    <div className="bg-neutral-950 p-8 rounded-2xl shadow-lg border border-neutral-700 max-w-7xl mx-auto space-y-8">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-white">Attendance Monitoring</h2>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        {/* Title with Icon */}
+        <h2 className="text-3xl font-extrabold flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
+            <FaUserCheck className="text-emerald-400" /> Attendance Monitoring
+        </h2>
+
+        {/* Export Button */}
         <button
           onClick={exportToPDF}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow"
+          className="flex items-center gap-2 px-5 py-2.5 
+                    bg-gradient-to-r from-emerald-500 to-green-600 
+                    hover:from-emerald-600 hover:to-green-700
+                    text-white rounded-lg text-sm sm:text-base font-semibold 
+                    shadow-md hover:shadow-lg hover:shadow-emerald-500/30
+                    transform hover:scale-105 transition-all duration-200"
         >
-          <FaDownload /> Export PDF
+          <FaDownload className="text-sm sm:text-base" /> Export PDF
         </button>
       </div>
 
+
       {/* Filters (with date range) */}
-      <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {["course", "subject", "section", "instructor"].map((field) => (
-          <select
-            key={field}
-            value={filters[field]}
-            onChange={(e) => handleFilterChange(field, e.target.value)}
-            className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
-          >
-            <option value="All">
-              All {field.charAt(0).toUpperCase() + field.slice(1)}s
-            </option>
-            {(field === "course"
-              ? uniqueCourses
-              : field === "subject"
-              ? uniqueSubjects
-              : field === "section"
-              ? uniqueSections
-              : uniqueInstructors
-            ).map((item, idx) => (
-              <option key={idx} value={item}>
-                {item}
+          <div key={field} className="relative">
+            <select
+              value={filters[field]}
+              onChange={(e) => handleFilterChange(field, e.target.value)}
+              className="w-full px-4 py-2.5 
+                        bg-gradient-to-br from-neutral-800 to-neutral-900 
+                        border border-neutral-700 
+                        rounded-lg text-white text-sm appearance-none
+                        focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400
+                        shadow-sm hover:shadow-md hover:shadow-emerald-500/10
+                        transition duration-200"
+            >
+              <option value="All" className="bg-neutral-900 text-white">
+                All {field.charAt(0).toUpperCase() + field.slice(1)}s
               </option>
-            ))}
-          </select>
+              {(field === "course"
+                ? uniqueCourses
+                : field === "subject"
+                ? uniqueSubjects
+                : field === "section"
+                ? uniqueSections
+                : uniqueInstructors
+              ).map((item, idx) => (
+                <option key={idx} value={item} className="bg-neutral-900 text-white">
+                  {item}
+                </option>
+              ))}
+            </select>
+            {/* Dropdown Arrow */}
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+              ▼
+            </span>
+          </div>
         ))}
 
-        <input
-          type="date"
-          value={filters.startDate}
-          onChange={(e) => handleFilterChange("startDate", e.target.value)}
-          className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
-        />
-        <input
-          type="date"
-          value={filters.endDate}
-          onChange={(e) => handleFilterChange("endDate", e.target.value)}
-          className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
-        />
+        {/* Start Date */}
+        <div>
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => handleFilterChange("startDate", e.target.value)}
+            className="w-full px-4 py-2.5 
+                      bg-gradient-to-br from-neutral-800 to-neutral-900 
+                      border border-neutral-700 
+                      rounded-lg text-white text-sm
+                      focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400
+                      shadow-sm hover:shadow-md hover:shadow-emerald-500/10
+                      transition duration-200 [color-scheme:dark]"
+          />
+        </div>
+
+        {/* End Date */}
+        <div>
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => handleFilterChange("endDate", e.target.value)}
+            className="w-full px-4 py-2.5 
+                      bg-gradient-to-br from-neutral-800 to-neutral-900 
+                      border border-neutral-700 
+                      rounded-lg text-white text-sm
+                      focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400
+                      shadow-sm hover:shadow-md hover:shadow-emerald-500/10
+                      transition duration-200 [color-scheme:dark]"
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {["Present", "Absent", "Late"].map((status) => (
+        {/* Status Cards */}
+        {[
+          { 
+            label: "Present", 
+            color: "from-emerald-500/30 via-emerald-600/20 to-green-700/30", 
+            text: "text-emerald-400", 
+            icon: <FaCheckCircle className="text-emerald-400 text-xl" />, 
+            glow: "hover:shadow-emerald-500/50" 
+          },
+          { 
+            label: "Absent", 
+            color: "from-red-500/30 via-red-600/20 to-rose-800/30", 
+            text: "text-red-400", 
+            icon: <FaTimesCircle className="text-red-400 text-xl" />, 
+            glow: "hover:shadow-red-500/50" 
+          },
+          { 
+            label: "Late", 
+            color: "from-yellow-400/30 via-amber-500/20 to-orange-600/30", 
+            text: "text-yellow-400", 
+            icon: <FaClock className="text-yellow-400 text-xl" />, 
+            glow: "hover:shadow-yellow-400/50" 
+          },
+        ].map(({ label, color, text, icon, glow }) => (
           <div
-            key={status}
-            className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 text-center"
+            key={label}
+            className={`p-5 rounded-2xl border border-neutral-700 text-center 
+                        bg-gradient-to-br ${color} backdrop-blur-sm
+                        transition-all duration-300 transform hover:scale-105 
+                        hover:shadow-lg ${glow}`}
           >
-            <p className="text-neutral-400 text-sm">{status}</p>
-            <p
-              className="text-2xl font-bold"
-              style={{ color: COLORS[status] }}
-            >
-              {summary[status]}
-            </p>
+            <div className="flex justify-center mb-2">{icon}</div>
+            <p className="text-neutral-400 text-sm font-medium">{label}</p>
+            <p className={`text-3xl font-extrabold ${text}`}>{summary[label]}</p>
           </div>
         ))}
-        <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 text-center">
-          <p className="text-neutral-400 text-sm">Attendance Rate</p>
-          <p className="text-2xl font-bold text-blue-400">{attendanceRate}%</p>
-        </div>
+
+        {/* Attendance Rate */}
+        {(() => {
+          let gradient = "";
+          let textColor = "";
+
+          if (attendanceRate <= 50) {
+            gradient = "from-red-500/30 via-red-600/20 to-rose-700/30";
+            textColor = "text-red-400";
+          } else if (attendanceRate < 80) {
+            gradient = "from-yellow-400/30 via-amber-500/20 to-orange-600/30";
+            textColor = "text-yellow-400";
+          } else {
+            gradient = "from-emerald-500/30 via-emerald-600/20 to-green-700/30";
+            textColor = "text-emerald-400";
+          }
+
+          return (
+            <div
+              className={`p-5 rounded-2xl border border-neutral-700 text-center 
+                          bg-gradient-to-br ${gradient} backdrop-blur-sm
+                          transition-all duration-300 transform hover:scale-105 
+                          hover:shadow-lg hover:shadow-${textColor.split("-")[1]}-500/40`}
+            >
+              <div className="flex justify-center mb-2">
+                <FaChartPie className={`${textColor} text-xl`} />
+              </div>
+              <p className="text-neutral-400 text-sm font-medium">Attendance Rate</p>
+              <p className={`text-3xl font-extrabold ${textColor}`}>
+                {attendanceRate}%
+              </p>
+            </div>
+          );
+        })()}
       </div>
+
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Bar Chart */}
-        <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700">
-          <h3 className="text-white font-semibold mb-4">Daily Attendance</h3>
+        <div className="bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 p-6 rounded-2xl border border-neutral-700 shadow-lg">
+          <h3 className="text-lg font-extrabold text-white mb-4 flex items-center gap-2">
+            Daily Attendance
+          </h3>
+
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dailyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-              <XAxis dataKey="date" stroke="#ccc" />
-              <YAxis stroke="#ccc" />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="Present" fill={COLORS.Present} />
-              <Bar dataKey="Absent" fill={COLORS.Absent} />
-              <Bar dataKey="Late" fill={COLORS.Late} />
+            <BarChart data={dailyData} barSize={40}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" opacity={0.3} />
+
+              {/* ✅ Fix overlapping dates */}
+              <XAxis
+                dataKey="date"
+                stroke="#aaa"
+                angle={-30}
+                textAnchor="end"
+                interval={0}
+                height={60}
+              />
+              <YAxis stroke="#aaa" />
+
+              {/* ✅ Custom tooltip */}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1f2937",
+                  border: "1px solid #374151",
+                  borderRadius: "8px",
+                  color: "#fff",
+                }}
+                cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              />
+              <Legend wrapperStyle={{ color: "#ccc" }} />
+
+              {/* ✅ Gradient Definitions */}
+              <defs>
+                <linearGradient id="presentGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#34d399" stopOpacity={0.9} />
+                  <stop offset="95%" stopColor="#059669" stopOpacity={0.8} />
+                </linearGradient>
+                <linearGradient id="absentGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f87171" stopOpacity={0.9} />
+                  <stop offset="95%" stopColor="#b91c1c" stopOpacity={0.8} />
+                </linearGradient>
+                <linearGradient id="lateGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.9} />
+                  <stop offset="95%" stopColor="#b45309" stopOpacity={0.8} />
+                </linearGradient>
+              </defs>
+
+              {/* ✅ Bars with hover animation */}
+              <Bar
+                dataKey="Present"
+                fill="url(#presentGradient)"
+                radius={[6, 6, 0, 0]}
+                className="transition-all duration-300 hover:opacity-80"
+              />
+              <Bar
+                dataKey="Absent"
+                fill="url(#absentGradient)"
+                radius={[6, 6, 0, 0]}
+                className="transition-all duration-300 hover:opacity-80"
+              />
+              <Bar
+                dataKey="Late"
+                fill="url(#lateGradient)"
+                radius={[6, 6, 0, 0]}
+                className="transition-all duration-300 hover:opacity-80"
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
         {/* Pie Chart */}
-        <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700">
-          <h3 className="text-white font-semibold mb-4">Attendance Distribution</h3>
+        <div className="bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 p-6 rounded-2xl border border-neutral-700 shadow-lg">
+          <h3 className="text-lg font-extrabold text-white mb-4 flex items-center gap-2">
+            Attendance Distribution
+          </h3>
+
           <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={pieData}
-              cx="40%" // shifted left kasi nasa kanan ang legend
-              cy="50%"
-              innerRadius={70}
-              outerRadius={120}
-              paddingAngle={0}
-              dataKey="value"
-            >
-              {pieData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[entry.name]} />
-              ))}
-            </Pie>
+            <PieChart>
+              {/* ✅ Gradient definitions */}
+              <defs>
+                <linearGradient id="presentGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#059669" stopOpacity={0.9} />
+                </linearGradient>
+                <linearGradient id="absentGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#f87171" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.9} />
+                </linearGradient>
+                <linearGradient id="lateGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#b45309" stopOpacity={0.9} />
+                </linearGradient>
+              </defs>
 
-            {/* Custom center text */}
-            <text
-              x="34%"
-              y="48%"
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-3xl font-bold"
-              fill="#ffffff"
-            >
-              {summary.Total}
-            </text>
-            <text
-              x="34%"
-              y="55%"
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-sm"
-              fill="#ffffff"
-            >
-              {attendanceRate}%
-            </text>
+              {/* ✅ Pie with glow hover and neutral labels */}
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={120}
+                paddingAngle={0}
+                dataKey="value"
+                stroke="none"
+                isAnimationActive={true}
+                label={({ name, value, percent }) => {
+                  const percentage = (percent * 100).toFixed(1);
+                  return `${name}: ${value} (${percentage}%)`;
+                }}
+                labelStyle={{
+                  fill: "#e5e7eb", // neutral gray/white
+                  fontWeight: "600",
+                  fontSize: "0.8rem",
+                }}
+                labelLine={false}
+              >
+                {pieData.map((entry, idx) => {
+                  const glow =
+                    entry.name === "Present"
+                      ? "drop-shadow(0 0 8px rgba(52,211,153,0.8))" // emerald
+                      : entry.name === "Absent"
+                      ? "drop-shadow(0 0 8px rgba(248,113,113,0.8))" // red
+                      : "drop-shadow(0 0 8px rgba(251,191,36,0.8))"; // amber
 
-            <Legend
-              layout="vertical"
-              verticalAlign="middle"
-              align="right"
-              iconType="circle"
-            />
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
+                  return (
+                    <Cell
+                      key={`cell-${idx}`}
+                      fill={
+                        entry.name === "Present"
+                          ? "url(#presentGrad)"
+                          : entry.name === "Absent"
+                          ? "url(#absentGrad)"
+                          : "url(#lateGrad)"
+                      }
+                      style={{
+                        filter: "none",
+                        transition: "filter 0.3s ease",
+                      }}
+                      className="cursor-pointer"
+                      onMouseEnter={(e) => (e.target.style.filter = glow)}
+                      onMouseLeave={(e) => (e.target.style.filter = "none")}
+                    />
+                  );
+                })}
+              </Pie>
+
+
+              {/* ✅ Tooltip */}
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "#1f2937",
+                  border: "1px solid #374151",
+                  borderRadius: "8px",
+                  color: "#fff",
+                }}
+                cursor={{ fill: "rgba(255,255,255,0.05)" }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Line Chart */}
-      <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700">
-        <h3 className="text-white font-semibold mb-4">Attendance Trend</h3>
+      <div className="bg-gradient-to-br from-neutral-900/90 to-neutral-950/90 p-6 rounded-2xl border border-neutral-700 shadow-lg">
+        <h3 className="text-lg font-extrabold text-white mb-4 flex items-center gap-2">
+          Attendance Trend
+        </h3>
+
         <ResponsiveContainer width="100%" height={350}>
-          <LineChart data={dailyData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#444" />
-            <XAxis dataKey="date" stroke="#ccc" />
-            <YAxis stroke="#ccc" />
-            <Tooltip />
-            <Legend />
+          <LineChart
+            data={dailyData}
+            margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
+          >
+            {/* ✅ Grid with subtle styling */}
+            <CartesianGrid strokeDasharray="4 4" stroke="#374151" />
+
+            {/* ✅ Axis styling */}
+            <XAxis
+              dataKey="date"
+              stroke="#9ca3af"
+              tick={{ fontSize: 12 }}
+              tickMargin={10}
+              interval="preserveStartEnd"
+            />
+            <YAxis
+              stroke="#9ca3af"
+              tick={{ fontSize: 12 }}
+              tickMargin={10}
+            />
+
+            {/* ✅ Tooltip styled */}
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#1f2937",
+                border: "1px solid #374151",
+                borderRadius: "8px",
+                color: "#fff",
+                fontSize: "0.85rem",
+              }}
+              cursor={{ stroke: "#4b5563", strokeWidth: 1 }}
+            />
+
+            {/* ✅ Legend styled */}
+            <Legend
+              wrapperStyle={{
+                paddingTop: "10px",
+                fontSize: "0.8rem",
+                color: "#d1d5db",
+              }}
+            />
+
+            {/* ✅ Gradient defs for each line */}
+            <defs>
+              <linearGradient id="presentGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#059669" stopOpacity={0.9} />
+              </linearGradient>
+              <linearGradient id="absentGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#f87171" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.9} />
+              </linearGradient>
+              <linearGradient id="lateGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#b45309" stopOpacity={0.9} />
+              </linearGradient>
+            </defs>
+
+            {/* ✅ Lines with gradients + smooth animation */}
             <Line
               type="monotone"
               dataKey="Present"
-              stroke={COLORS.Present}
-              strokeWidth={2}
+              stroke="url(#presentGrad)"
+              strokeWidth={3}
+              dot={{ r: 4, stroke: "#34d399", strokeWidth: 2, fill: "#111827" }}
+              activeDot={{ r: 6, stroke: "#34d399", strokeWidth: 2, fill: "#111827" }}
             />
             <Line
               type="monotone"
               dataKey="Absent"
-              stroke={COLORS.Absent}
-              strokeWidth={2}
+              stroke="url(#absentGrad)"
+              strokeWidth={3}
+              dot={{ r: 4, stroke: "#f87171", strokeWidth: 2, fill: "#111827" }}
+              activeDot={{ r: 6, stroke: "#f87171", strokeWidth: 2, fill: "#111827" }}
             />
             <Line
               type="monotone"
               dataKey="Late"
-              stroke={COLORS.Late}
-              strokeWidth={2}
+              stroke="url(#lateGrad)"
+              strokeWidth={3}
+              dot={{ r: 4, stroke: "#fbbf24", strokeWidth: 2, fill: "#111827" }}
+              activeDot={{ r: 6, stroke: "#fbbf24", strokeWidth: 2, fill: "#111827" }}
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
+
       {/* Breakdown Selector */}
-      <div>
-        <label className="text-white mr-3">Breakdown View:</label>
-        <select
-          value={breakdownView}
-          onChange={(e) => setBreakdownView(e.target.value)}
-          className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-white text-sm"
-        >
-          <option value="None">None</option>
-          <option value="Student">By Student</option>
-          <option value="Subject">By Subject</option>
-          <option value="Course">By Course</option>
-        </select>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-6">
+        <label className="text-sm font-medium text-neutral-300">
+          Breakdown View:
+        </label>
+        <div className="relative w-full sm:w-64">
+          <select
+            value={breakdownView}
+            onChange={(e) => setBreakdownView(e.target.value)}
+            className="w-full px-4 py-2.5
+                      bg-gradient-to-br from-neutral-800 via-neutral-900 to-black
+                      border border-neutral-700 rounded-lg 
+                      text-white text-sm appearance-none
+                      focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400
+                      shadow-sm hover:shadow-md hover:shadow-emerald-500/10
+                      transition duration-200"
+          >
+            <option value="None" className="bg-neutral-900 text-white">None</option>
+            <option value="Student" className="bg-neutral-900 text-white">By Student</option>
+            <option value="Subject" className="bg-neutral-900 text-white">By Subject</option>
+            <option value="Course" className="bg-neutral-900 text-white">By Course</option>
+          </select>
+
+          {/* Custom dropdown arrow */}
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none">
+            ▼
+          </span>
+        </div>
       </div>
 
-      {/* Breakdown Table */}
+     {/* Breakdown Table */}
       {breakdownView !== "None" && (
-        <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg">
-          <div className="hidden md:grid grid-cols-6 bg-neutral-800/80 text-neutral-200 font-semibold text-sm uppercase tracking-wide border-b border-neutral-700">
+        <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg mt-6">
+          {/* Header (desktop only) */}
+          <div className="hidden md:grid grid-cols-6 bg-gradient-to-r from-emerald-500/10 to-green-600/10 
+                          text-green-300 font-semibold text-xs uppercase tracking-wide border-b border-neutral-700">
             <div className="px-4 py-3">{breakdownView}</div>
             <div className="px-4 py-3">Present</div>
             <div className="px-4 py-3">Absent</div>
@@ -440,25 +709,83 @@ const AttendanceMonitoringComponent = () => {
             <div className="px-4 py-3">Total</div>
             <div className="px-4 py-3 text-center">Rate</div>
           </div>
-          {breakdownData.map((row, idx) => (
-            <div
-              key={idx}
-              className="grid grid-cols-6 text-sm text-white border-b border-neutral-700 hover:bg-neutral-800/60"
-            >
-              <div className="px-4 py-3">{row.name}</div>
-              <div className="px-4 py-3 text-green-400">{row.Present}</div>
-              <div className="px-4 py-3 text-red-400">{row.Absent}</div>
-              <div className="px-4 py-3 text-yellow-400">{row.Late}</div>
-              <div className="px-4 py-3">{row.Total}</div>
-              <div className="px-4 py-3 text-center font-bold">{row.Rate}</div>
-            </div>
-          ))}
+
+          {/* Rows */}
+          {breakdownData.map((row, idx) => {
+            const rateValue = parseFloat(row.Rate.toString().replace("%", "")) || 0;
+
+            let rateColor =
+              rateValue >= 80
+                ? "bg-gradient-to-r from-emerald-500/30 to-green-600/30 text-emerald-300 border border-emerald-500/40"
+                : rateValue >= 50
+                ? "bg-gradient-to-r from-amber-400/30 to-orange-600/30 text-amber-300 border border-amber-500/40"
+                : "bg-gradient-to-r from-red-500/30 to-rose-700/30 text-red-300 border border-red-500/40";
+
+            return (
+              <div
+                key={idx}
+                className={`grid md:grid-cols-6 text-sm 
+                            border-b border-neutral-700 
+                            transition duration-300
+                            ${idx % 2 === 0 ? "bg-neutral-900/40" : "bg-neutral-800/40"}
+                            hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-green-600/10 
+                            hover:shadow-lg hover:shadow-emerald-500/20`}
+              >
+                {/* ✅ Desktop Row */}
+                <div className="hidden md:contents text-white">
+                  <div className="px-4 py-3">{row.name}</div>
+                  <div className="px-4 py-3 text-green-400 font-medium">{row.Present}</div>
+                  <div className="px-4 py-3 text-red-400 font-medium">{row.Absent}</div>
+                  <div className="px-4 py-3 text-yellow-400 font-medium">{row.Late}</div>
+                  <div className="px-4 py-3 font-medium">{row.Total}</div>
+                  <div className="px-4 py-3 flex justify-center">
+                    <span
+                      className={`inline-flex items-center justify-center 
+                                  min-w-[70px] h-8 px-3 rounded-full text-xs font-bold ${rateColor}`}
+                    >
+                      {row.Rate}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ✅ Mobile Card */}
+                <div className="md:hidden p-3">
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-neutral-300">
+                    <p className="font-semibold text-neutral-400">{breakdownView}:</p>
+                    <p className="text-white">{row.name}</p>
+
+                    <p className="font-semibold text-neutral-400">Present:</p>
+                    <p className="text-green-400 font-medium">{row.Present}</p>
+
+                    <p className="font-semibold text-neutral-400">Absent:</p>
+                    <p className="text-red-400 font-medium">{row.Absent}</p>
+
+                    <p className="font-semibold text-neutral-400">Late:</p>
+                    <p className="text-yellow-400 font-medium">{row.Late}</p>
+
+                    <p className="font-semibold text-neutral-400">Total:</p>
+                    <p className="text-white">{row.Total}</p>
+
+                    <p className="font-semibold text-neutral-400">Rate:</p>
+                    <span
+                      className={`inline-flex items-center justify-center 
+                                  min-w-[70px] h-7 px-2 rounded-full text-xs font-bold ${rateColor}`}
+                    >
+                      {row.Rate}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Raw Logs Table */}
-      <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg">
-        <div className="hidden md:grid grid-cols-6 bg-neutral-800/80 text-neutral-200 font-semibold text-sm uppercase tracking-wide border-b border-neutral-700">
+      {/* ✅ Raw Logs Table (Compact Mobile Version) */}
+      <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg mt-6">
+        {/* Header (desktop only) */}
+        <div className="hidden md:grid grid-cols-6 bg-gradient-to-r from-emerald-500/10 to-green-600/10 
+                        text-emerald-300 font-semibold text-xs uppercase tracking-wide border-b border-neutral-700">
           <div className="px-4 py-3">Student ID</div>
           <div className="px-4 py-3">Name</div>
           <div className="px-4 py-3">Course</div>
@@ -466,6 +793,7 @@ const AttendanceMonitoringComponent = () => {
           <div className="px-4 py-3">Status</div>
           <div className="px-4 py-3">Date</div>
         </div>
+
         {loading ? (
           <div className="px-4 py-6 text-center text-neutral-400 italic">
             Loading logs...
@@ -474,27 +802,68 @@ const AttendanceMonitoringComponent = () => {
           filteredLogs.map((log, idx) => (
             <div
               key={idx}
-              className="grid grid-cols-6 text-sm text-white border-b border-neutral-700 hover:bg-neutral-800/60"
+              className={`border-b border-neutral-700 
+                          ${idx % 2 === 0 ? "bg-neutral-900/40" : "bg-neutral-800/40"}
+                          hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-green-600/10 
+                          transition duration-300`}
             >
-              <div className="px-4 py-3">{log.student_id}</div>
-              <div className="px-4 py-3">
-                {log.first_name} {log.last_name}
+              {/* Desktop Row */}
+              <div className="hidden md:grid grid-cols-6 text-sm text-white">
+                <div className="px-4 py-3">{log.student_id}</div>
+                <div className="px-4 py-3">{log.first_name} {log.last_name}</div>
+                <div className="px-4 py-3">{log.course}</div>
+                <div className="px-4 py-3">{log.subject_code}</div>
+                <div className="px-4 py-3">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-bold
+                      ${
+                        log.status === "Present"
+                          ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 text-emerald-400"
+                          : log.status === "Absent"
+                          ? "bg-gradient-to-r from-red-500/20 to-rose-700/20 text-red-400"
+                          : "bg-gradient-to-r from-amber-400/20 to-orange-600/20 text-amber-400"
+                      }`}
+                  >
+                    {log.status}
+                  </span>
+                </div>
+                <div className="px-4 py-3 text-neutral-400">
+                  {new Date(log.date).toLocaleDateString()}
+                </div>
               </div>
-              <div className="px-4 py-3">{log.course}</div>
-              <div className="px-4 py-3">{log.subject_code}</div>
-              <div
-                className={`px-4 py-3 font-semibold ${
-                  log.status === "Present"
-                    ? "text-green-400"
-                    : log.status === "Absent"
-                    ? "text-red-400"
-                    : "text-yellow-400"
-                }`}
-              >
-                {log.status}
-              </div>
-              <div className="px-4 py-3">
-                {new Date(log.date).toLocaleDateString()}
+
+              {/* Mobile Card (Compact) */}
+              <div className="md:hidden p-3 text-sm text-neutral-300">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <p className="font-semibold text-neutral-400">ID:</p>
+                  <p className="text-white">{log.student_id}</p>
+
+                  <p className="font-semibold text-neutral-400">Name:</p>
+                  <p className="text-white truncate">{log.first_name} {log.last_name}</p>
+
+                  <p className="font-semibold text-neutral-400">Course:</p>
+                  <p>{log.course}</p>
+
+                  <p className="font-semibold text-neutral-400">Subject:</p>
+                  <p>{log.subject_code}</p>
+
+                  <p className="font-semibold text-neutral-400">Status:</p>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-bold w-fit
+                      ${
+                        log.status === "Present"
+                          ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 text-emerald-400"
+                          : log.status === "Absent"
+                          ? "bg-gradient-to-r from-red-500/20 to-rose-700/20 text-red-400"
+                          : "bg-gradient-to-r from-amber-400/20 to-orange-600/20 text-amber-400"
+                      }`}
+                  >
+                    {log.status}
+                  </span>
+
+                  <p className="font-semibold text-neutral-400">Date:</p>
+                  <p>{new Date(log.date).toLocaleDateString()}</p>
+                </div>
               </div>
             </div>
           ))

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaPlus, FaEdit, FaTrash, FaEye } from "react-icons/fa";
+import { FaPlus, FaEdit, FaTrash, FaEye, FaChalkboardTeacher, FaSearch } from "react-icons/fa";
 import AddSubjectModal from "./AddSubjectModal";
 import ViewSubjectModal from "./ViewSubjectModal";
 import EditSubjectModal from "./EditSubjectModal";
@@ -71,6 +71,20 @@ export default function SubjectManagementComponent() {
     setFiltered(data);
   }, [search, courseFilter, yearSemFilter, subjects]);
 
+  useEffect(() => {
+  const modalOpen = isAddModalOpen || isViewModalOpen || isEditModalOpen || isDeleteModalOpen;
+
+  if (modalOpen) {
+    document.body.style.overflow = "hidden";  // 🚫 Disable scroll
+  } else {
+    document.body.style.overflow = "auto";    // ✅ Restore scroll
+  }
+
+  return () => {
+    document.body.style.overflow = "auto"; // Cleanup
+  };
+}, [isAddModalOpen, isViewModalOpen, isEditModalOpen, isDeleteModalOpen]);
+
   // handle delete
   const handleDelete = async (id) => {
     try {
@@ -102,38 +116,50 @@ export default function SubjectManagementComponent() {
   };
 
   return (
-    <div className="bg-neutral-900 text-white p-6 rounded-xl shadow-lg space-y-8">
+    <div className="bg-neutral-950 text-white p-8 rounded-xl shadow-lg space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h2 className="text-2xl font-bold text-green-400">
-          Subject Management
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-8">
+        {/* Title */}
+        <h2 className="text-3xl font-extrabold flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">
+            <FaChalkboardTeacher className="text-emerald-400"/>
+            Subject Management
         </h2>
+
+        {/* Controls */}
         <div className="flex flex-wrap gap-3">
           {/* Search */}
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search code or title"
-            className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm"
-          />
+          <div className="flex items-center bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 w-full sm:w-60
+                          focus-within:border-emerald-400 focus-within:ring-1 focus-within:ring-emerald-400 transition">
+            <FaSearch className="text-neutral-500 mr-2 text-sm" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search code or title..."
+              className="bg-transparent outline-none text-sm text-white w-full placeholder-neutral-500"
+            />
+          </div>
 
-          {/* Course filter */}
+          {/* Course Filter */}
           <select
             value={courseFilter}
             onChange={(e) => setCourseFilter(e.target.value)}
-            className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm"
+            className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-white
+                      focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400
+                      transition"
           >
             <option value="">All Courses</option>
             <option value="BSCS">BSCS</option>
             <option value="BSINFOTECH">BSINFOTECH</option>
           </select>
 
-          {/* Year + Semester filter */}
+          {/* Year + Semester Filter */}
           <select
             value={yearSemFilter}
             onChange={(e) => setYearSemFilter(e.target.value)}
-            className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm"
+            className="px-4 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-white
+                      focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400
+                      transition"
           >
             <option value="">All Year & Sem</option>
             <option value="1st Year - 1st Sem">1st Year - 1st Sem</option>
@@ -147,19 +173,25 @@ export default function SubjectManagementComponent() {
             <option value="Summer">Summer</option>
           </select>
 
-          {/* Add Subject */}
+          {/* Add Subject Button */}
           <button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-semibold shadow-md transition"
+            className="flex items-center gap-2 px-5 py-2 rounded-lg 
+                      bg-gradient-to-r from-emerald-400 to-green-600 text-white text-sm font-semibold 
+                      shadow-md hover:shadow-lg hover:shadow-emerald-500/30
+                      transform hover:scale-105 transition-all"
           >
             <FaPlus /> Add Subject
           </button>
         </div>
       </div>
 
+
       {/* Table */}
-      <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg">
-        <div className="hidden md:grid grid-cols-6 bg-neutral-800/80 text-neutral-200 font-semibold text-sm uppercase tracking-wide border-b border-neutral-700">
+      <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-xl bg-neutral-900/60 backdrop-blur-sm">
+        {/* Header */}
+        <div className="hidden md:grid grid-cols-6 bg-gradient-to-r from-emerald-500/10 to-green-600/10 
+                        text-emerald-300 font-semibold text-sm uppercase tracking-wide border-b border-neutral-700">
           <div className="px-4 py-3">Code</div>
           <div className="px-4 py-3">Title</div>
           <div className="px-4 py-3">Course</div>
@@ -172,54 +204,73 @@ export default function SubjectManagementComponent() {
           filtered.map((s) => (
             <div
               key={s._id}
-              className="border-b border-neutral-800 hover:bg-neutral-800/40 transition"
+              className="border-b border-neutral-800 hover:bg-neutral-800/40 transition-all duration-300 
+                        group cursor-pointer"
             >
+              {/* Desktop row */}
               <div className="hidden md:grid grid-cols-6 text-sm text-neutral-300">
-                <div className="px-4 py-3">{s.subject_code}</div>
-                <div className="px-4 py-3">{s.subject_title}</div>
+                <div className="px-4 py-3 font-mono text-emerald-400">{s.subject_code}</div>
+                <div className="px-4 py-3 font-medium text-white">{s.subject_title}</div>
                 <div className="px-4 py-3">{s.course}</div>
                 <div className="px-4 py-3">{s.year_level || "—"}</div>
                 <div className="px-4 py-3">{s.semester || "—"}</div>
-                <div className="px-4 py-3 flex gap-2 justify-center">
-                  <button
-                    onClick={() => {
-                      setSelectedSubject(s);
-                      setIsViewModalOpen(true);
-                    }}
-                    className="p-2 rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-                  >
-                    <FaEye />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedSubject(s);
-                      setIsEditModalOpen(true);
-                    }}
-                    className="p-2 rounded-md bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30"
-                  >
-                    <FaEdit />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedSubject(s);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="p-2 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/30"
-                  >
-                    <FaTrash />
-                  </button>
-                </div>
+               <div className="px-4 py-3 flex gap-3 justify-center">
+                {/* View */}
+                <button
+                  onClick={() => {
+                    setSelectedSubject(s);
+                    setIsViewModalOpen(true);
+                  }}
+                  className="p-2.5 rounded-lg bg-gradient-to-br from-blue-500/10 to-blue-600/10 
+                            text-blue-400 hover:from-blue-500/20 hover:to-blue-600/20 
+                            hover:text-blue-300 hover:shadow-md hover:shadow-blue-500/30 
+                            transform hover:scale-110 transition-all duration-300 ease-out"
+                  title="View"
+                >
+                  <FaEye className="text-sm" />
+                </button>
+
+                {/* Edit */}
+                <button
+                  onClick={() => {
+                    setSelectedSubject(s);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="p-2.5 rounded-lg bg-gradient-to-br from-yellow-500/10 to-amber-500/10 
+                            text-yellow-400 hover:from-yellow-500/20 hover:to-amber-500/20 
+                            hover:text-yellow-300 hover:shadow-md hover:shadow-yellow-500/30 
+                            transform hover:scale-110 transition-all duration-300 ease-out"
+                  title="Edit"
+                >
+                  <FaEdit className="text-sm" />
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() => {
+                    setSelectedSubject(s);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="p-2.5 rounded-lg bg-gradient-to-br from-red-500/10 to-rose-600/10 
+                            text-red-400 hover:from-red-500/20 hover:to-rose-600/20 
+                            hover:text-red-300 hover:shadow-md hover:shadow-red-500/30 
+                            transform hover:scale-110 transition-all duration-300 ease-out"
+                  title="Delete"
+                >
+                  <FaTrash className="text-sm" />
+                </button>
+              </div>
               </div>
 
-              {/* Mobile view */}
-              <div className="md:hidden p-4 space-y-2 text-sm text-neutral-300">
+              {/* Mobile card view */}
+              <div className="md:hidden p-4 space-y-2 text-sm text-neutral-300 bg-neutral-900/40 rounded-lg m-2 shadow-sm">
                 <p>
                   <span className="text-neutral-400">Code:</span>{" "}
-                  {s.subject_code}
+                  <span className="font-mono text-emerald-400">{s.subject_code}</span>
                 </p>
                 <p>
                   <span className="text-neutral-400">Title:</span>{" "}
-                  {s.subject_title}
+                  <span className="font-medium text-white">{s.subject_title}</span>
                 </p>
                 <p>
                   <span className="text-neutral-400">Course:</span> {s.course}
@@ -232,44 +283,59 @@ export default function SubjectManagementComponent() {
                   <span className="text-neutral-400">Semester:</span>{" "}
                   {s.semester || "—"}
                 </p>
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    onClick={() => {
-                      setSelectedSubject(s);
-                      setIsViewModalOpen(true);
-                    }}
-                    className="px-3 py-1 rounded-md bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs"
-                  >
-                    View
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedSubject(s);
-                      setIsEditModalOpen(true);
-                    }}
-                    className="px-3 py-1 rounded-md bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 text-xs"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedSubject(s);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    className="px-3 py-1 rounded-md bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs"
-                  >
-                    Delete
-                  </button>
-                </div>
+                <div className="flex justify-end gap-2 pt-3">
+                {/* View */}
+                <button
+                  onClick={() => {
+                    setSelectedSubject(s);
+                    setIsViewModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg 
+                            bg-blue-500/10 text-blue-400 text-xs font-medium 
+                            hover:bg-blue-500/20 hover:text-blue-300 
+                            transition-all duration-200 shadow-sm hover:shadow-blue-500/20"
+                >
+                  <FaEye className="text-xs" /> View
+                </button>
+
+                {/* Edit */}
+                <button
+                  onClick={() => {
+                    setSelectedSubject(s);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg 
+                            bg-yellow-500/10 text-yellow-400 text-xs font-medium 
+                            hover:bg-yellow-500/20 hover:text-yellow-300 
+                            transition-all duration-200 shadow-sm hover:shadow-yellow-500/20"
+                >
+                  <FaEdit className="text-xs" /> Edit
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() => {
+                    setSelectedSubject(s);
+                    setIsDeleteModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg 
+                            bg-red-500/10 text-red-400 text-xs font-medium 
+                            hover:bg-red-500/20 hover:text-red-300 
+                            transition-all duration-200 shadow-sm hover:shadow-red-500/20"
+                >
+                  <FaTrash className="text-xs" /> Delete
+                </button>
+              </div>
               </div>
             </div>
           ))
         ) : (
-          <div className="text-center text-neutral-500 py-6 text-sm">
+          <div className="text-center text-neutral-500 py-6 text-sm italic">
             No subjects found.
           </div>
         )}
       </div>
+
 
       {/* Add Subject Modal */}
       <AddSubjectModal

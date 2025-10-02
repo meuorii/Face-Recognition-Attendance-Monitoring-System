@@ -83,6 +83,20 @@ const StudentManagementComponent = () => {
     setFilteredStudents(filtered);
   }, [courseFilter, searchQuery, students]);
 
+  useEffect(() => {
+  const modalOpen = isViewModalOpen || isEditModalOpen || isDeleteModalOpen;
+
+  if (modalOpen) {
+    document.body.style.overflow = "hidden";  // 🚫 Disable background scroll
+  } else {
+    document.body.style.overflow = "auto";    // ✅ Restore scroll
+  }
+
+  return () => {
+    document.body.style.overflow = "auto"; // Cleanup just in case
+  };
+}, [isViewModalOpen, isEditModalOpen, isDeleteModalOpen]);
+
   // Compute course distribution
   const totalStudents = Object.values(distribution).reduce((a, b) => a + b, 0);
   const chartData = Object.entries(distribution).map(([course, count]) => ({
