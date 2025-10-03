@@ -44,13 +44,13 @@ const AdminDashboard = () => {
     >
       {/* Dark Overlay */}
       <div
-        className="absolute inset-0 bg-black bg-opacity-50"
+        className="absolute inset-0 bg-black/80 transition-opacity duration-500"
         onClick={() => setSidebarOpen(false)}
       ></div>
 
       {/* Sidebar Panel */}
       <div
-        className={`absolute left-0 top-0 w-64 bg-gray-900 h-full border-r border-green-600 shadow-lg transform transition-transform duration-300 ${
+        className={`absolute left-0 top-0 w-64 bg-gray-900 h-full border-r border-green-600 shadow-lg transform transition-transform duration-500 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

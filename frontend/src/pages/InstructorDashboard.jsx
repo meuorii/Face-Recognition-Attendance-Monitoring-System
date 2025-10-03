@@ -63,8 +63,19 @@ const InstructorDashboard = () => {
         {/* Background Glow */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-500/20 blur-[160px] rounded-full"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-600/20 blur-[160px] rounded-full"></div>
-        {/* ✅ Fixed Sidebar */}
+        {/* ✅ Desktop Sidebar */}
         <div className="hidden md:block fixed top-0 left-0 h-full w-64 bg-neutral-900 border-r border-green-500">
+          <Sidebar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            handleLogout={handleLogout}
+            isOpen={isSidebarOpen}
+            setIsOpen={setIsSidebarOpen}
+          />
+        </div>
+
+        {/* ✅ Mobile Sidebar */}
+        <div className="md:hidden">
           <Sidebar
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -77,7 +88,7 @@ const InstructorDashboard = () => {
         {/* ✅ Main content with fixed Navbar and scrollable content */}
         <div className="flex-1 flex flex-col md:ml-64">
           {/* Fixed Navbar */}
-          <div className="fixed top-0 left-64 right-0 z-10">
+          <div className="fixed top-0 left-0 right-0 md:left-64 z-10">
             <Navbar
               instructor={instructor}
               onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}

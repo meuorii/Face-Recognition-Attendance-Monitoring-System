@@ -11,7 +11,7 @@ const Sidebar = ({ activeTab, setActiveTab, onClose }) => {
     navigate("/admin/login");
   };
 
-const NavButton = ({ id, label, icon: Icon }) => {
+const NavButton = ({ id, label}) => {
   const isActive = activeTab === id;
 
   return (
@@ -28,17 +28,7 @@ const NavButton = ({ id, label, icon: Icon }) => {
             : "text-gray-300 hover:text-white hover:scale-[1.02]"
         }`}
     >
-      {/* Icon (optional) */}
-      {Icon && (
-        <Icon
-          className={`relative z-10 text-lg transition-colors duration-500 ${
-            isActive
-              ? "text-white"
-              : "text-emerald-400 group-hover:text-emerald-300"
-          }`}
-        />
-      )}
-
+    
       {/* Label */}
       <span className="relative z-10">{label}</span>
 
@@ -76,13 +66,6 @@ const NavButton = ({ id, label, icon: Icon }) => {
         <h2 className="bg-gradient-to-r from-emerald-400 to-green-500 bg-clip-text text-transparent text-xl font-extrabold tracking-wide">
           Admin Panel
         </h2>
-        <button
-          onClick={onClose}
-          className="text-gray-400 text-2xl md:hidden hover:text-white transition"
-          aria-label="Close sidebar"
-        >
-          ×
-        </button>
       </div>
 
       {/* Navigation Items */}

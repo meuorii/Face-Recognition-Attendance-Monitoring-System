@@ -56,7 +56,11 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, isOpen, setIsOpen }) =
         </div>
       </aside>
 
-      {/* ✅ Mobile Sidebar */}
+      {/* ✅ Mobile Sidebar + Overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 bg-black/80 z-40" onClick={() => setIsOpen(false)}></div>
+      )}
+
       <div
         className={`md:hidden fixed inset-y-0 left-0 w-64 text-white z-50 transform transition-transform duration-500 
           bg-neutral-950 border-r border-emerald-500/30 shadow-xl shadow-emerald-500/10
@@ -72,13 +76,6 @@ const Sidebar = ({ activeTab, setActiveTab, handleLogout, isOpen, setIsOpen }) =
             <h2 className="text-lg font-bold text-transparent bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text">
               Instructor Panel
             </h2>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-white text-2xl hover:text-emerald-400 transition"
-              aria-label="Close menu"
-            >
-              ✕
-            </button>
           </div>
 
           <nav className="p-4 space-y-3">

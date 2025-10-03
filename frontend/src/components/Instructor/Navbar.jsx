@@ -25,7 +25,7 @@ const Navbar = ({ instructor, onToggleSidebar }) => {
       <button
         onClick={onToggleSidebar}
         className="relative z-10 md:hidden text-white text-2xl focus:outline-none 
-          p-2 rounded-lg hover:bg-white/10 hover:text-emerald-400 transition-all duration-300"
+          p-2 rounded-lg hover:bg-white/10 hover:text-emerald-400 transition-all duration-300 flex-shrink-0"
         aria-label="Open Menu"
       >
         <FaBars />
