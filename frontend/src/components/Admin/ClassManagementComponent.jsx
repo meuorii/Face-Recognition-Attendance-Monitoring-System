@@ -92,7 +92,7 @@ const ClassManagementComponent = () => {
   };
 
   return (
-    <div className="bg-neutral-950 backdrop-blur-md p-8 rounded-2xl shadow-xl border border-white/10 max-w-7xl mx-auto">
+    <div className="bg-neutral-950 backdrop-blur-md p-8 rounded-2xl shadow-xl max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-extrabold flex items-center gap-2 bg-gradient-to-r from-emerald-400 to-green-600 bg-clip-text text-transparent">

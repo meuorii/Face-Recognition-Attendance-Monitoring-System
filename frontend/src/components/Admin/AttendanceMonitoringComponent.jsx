@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { FaDownload, FaUserCheck, FaCheckCircle, FaTimesCircle, FaClock, FaChartPie } from "react-icons/fa";
+import { FaDownload, FaUserCheck, FaCheckCircle, FaTimesCircle, FaClock, FaChartPie, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -41,6 +41,19 @@ const AttendanceMonitoringComponent = () => {
   });
   const [breakdownView, setBreakdownView] = useState("None");
   const [loading, setLoading] = useState(true);
+  const [expandedRows, setExpandedRows] = useState({});
+
+  const toggleRow = (idx) => {
+    setExpandedRows((prev) => ({
+      ...prev,
+      [idx]: !prev[idx],
+    }));
+  };
+
+  useEffect(() => {
+    fetchClasses();
+    fetchLogs();
+  }, []);
 
   useEffect(() => {
     fetchClasses();
@@ -236,7 +249,7 @@ const AttendanceMonitoringComponent = () => {
   };
 
   return (
-    <div className="bg-neutral-950 p-8 rounded-2xl shadow-lg border border-neutral-700 max-w-7xl mx-auto space-y-8">
+    <div className="bg-neutral-950 p-8 rounded-2xl shadow-lg max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         {/* Title with Icon */}
@@ -582,10 +595,10 @@ const AttendanceMonitoringComponent = () => {
             data={dailyData}
             margin={{ top: 10, right: 20, left: -10, bottom: 0 }}
           >
-            {/* ✅ Grid with subtle styling */}
-            <CartesianGrid strokeDasharray="4 4" stroke="#374151" />
+            {/* ✅ Subtle Grid */}
+            <CartesianGrid strokeDasharray="4 4" stroke="#374151" opacity={0.3} />
 
-            {/* ✅ Axis styling */}
+            {/* ✅ Axis Styling */}
             <XAxis
               dataKey="date"
               stroke="#9ca3af"
@@ -599,19 +612,20 @@ const AttendanceMonitoringComponent = () => {
               tickMargin={10}
             />
 
-            {/* ✅ Tooltip styled */}
+            {/* ✅ Tooltip Styled */}
             <Tooltip
               contentStyle={{
-                backgroundColor: "#1f2937",
+                backgroundColor: "#111827",
                 border: "1px solid #374151",
-                borderRadius: "8px",
+                borderRadius: "10px",
                 color: "#fff",
                 fontSize: "0.85rem",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
               }}
-              cursor={{ stroke: "#4b5563", strokeWidth: 1 }}
+              cursor={{ stroke: "rgba(255,255,255,0.2)", strokeWidth: 2 }}
             />
 
-            {/* ✅ Legend styled */}
+            {/* ✅ Legend Styled */}
             <Legend
               wrapperStyle={{
                 paddingTop: "10px",
@@ -620,27 +634,32 @@ const AttendanceMonitoringComponent = () => {
               }}
             />
 
-            {/* ✅ Gradient defs for each line */}
+            {/* ✅ Gradient Definitions with smoother shades */}
             <defs>
-              <linearGradient id="presentGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#059669" stopOpacity={0.9} />
+              {/* Present (Green) */}
+              <linearGradient id="presentGradTrend" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#34d399" stopOpacity={1} />
+                <stop offset="100%" stopColor="#10b981" stopOpacity={0.7} />
               </linearGradient>
-              <linearGradient id="absentGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#f87171" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.9} />
+
+              {/* Absent (Red) */}
+              <linearGradient id="absentGradTrend" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#f87171" stopOpacity={1} />
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.7} />
               </linearGradient>
-              <linearGradient id="lateGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#b45309" stopOpacity={0.9} />
+
+              {/* Late (Amber/Yellow) */}
+              <linearGradient id="lateGradTrend" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#fbbf24" stopOpacity={1} />
+                <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.7} />
               </linearGradient>
             </defs>
 
-            {/* ✅ Lines with gradients + smooth animation */}
+            {/* Lines */}
             <Line
               type="monotone"
               dataKey="Present"
-              stroke="url(#presentGrad)"
+              stroke="url(#presentGradTrend)"
               strokeWidth={3}
               dot={{ r: 4, stroke: "#34d399", strokeWidth: 2, fill: "#111827" }}
               activeDot={{ r: 6, stroke: "#34d399", strokeWidth: 2, fill: "#111827" }}
@@ -648,7 +667,7 @@ const AttendanceMonitoringComponent = () => {
             <Line
               type="monotone"
               dataKey="Absent"
-              stroke="url(#absentGrad)"
+              stroke="url(#absentGradTrend)"
               strokeWidth={3}
               dot={{ r: 4, stroke: "#f87171", strokeWidth: 2, fill: "#111827" }}
               activeDot={{ r: 6, stroke: "#f87171", strokeWidth: 2, fill: "#111827" }}
@@ -656,7 +675,7 @@ const AttendanceMonitoringComponent = () => {
             <Line
               type="monotone"
               dataKey="Late"
-              stroke="url(#lateGrad)"
+              stroke="url(#lateGradTrend)"
               strokeWidth={3}
               dot={{ r: 4, stroke: "#fbbf24", strokeWidth: 2, fill: "#111827" }}
               activeDot={{ r: 6, stroke: "#fbbf24", strokeWidth: 2, fill: "#111827" }}
@@ -696,182 +715,223 @@ const AttendanceMonitoringComponent = () => {
         </div>
       </div>
 
-     {/* Breakdown Table */}
-      {breakdownView !== "None" && (
-        <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg mt-6">
-          {/* Header (desktop only) */}
-          <div className="hidden md:grid grid-cols-6 bg-gradient-to-r from-emerald-500/10 to-green-600/10 
-                          text-green-300 font-semibold text-xs uppercase tracking-wide border-b border-neutral-700">
-            <div className="px-4 py-3">{breakdownView}</div>
-            <div className="px-4 py-3">Present</div>
-            <div className="px-4 py-3">Absent</div>
-            <div className="px-4 py-3">Late</div>
-            <div className="px-4 py-3">Total</div>
-            <div className="px-4 py-3 text-center">Rate</div>
-          </div>
-
-          {/* Rows */}
-          {breakdownData.map((row, idx) => {
-            const rateValue = parseFloat(row.Rate.toString().replace("%", "")) || 0;
-
-            let rateColor =
-              rateValue >= 80
-                ? "bg-gradient-to-r from-emerald-500/30 to-green-600/30 text-emerald-300 border border-emerald-500/40"
-                : rateValue >= 50
-                ? "bg-gradient-to-r from-amber-400/30 to-orange-600/30 text-amber-300 border border-amber-500/40"
-                : "bg-gradient-to-r from-red-500/30 to-rose-700/30 text-red-300 border border-red-500/40";
-
-            return (
-              <div
-                key={idx}
-                className={`grid md:grid-cols-6 text-sm 
-                            border-b border-neutral-700 
-                            transition duration-300
-                            ${idx % 2 === 0 ? "bg-neutral-900/40" : "bg-neutral-800/40"}
-                            hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-green-600/10 
-                            hover:shadow-lg hover:shadow-emerald-500/20`}
-              >
-                {/* ✅ Desktop Row */}
-                <div className="hidden md:contents text-white">
-                  <div className="px-4 py-3">{row.name}</div>
-                  <div className="px-4 py-3 text-green-400 font-medium">{row.Present}</div>
-                  <div className="px-4 py-3 text-red-400 font-medium">{row.Absent}</div>
-                  <div className="px-4 py-3 text-yellow-400 font-medium">{row.Late}</div>
-                  <div className="px-4 py-3 font-medium">{row.Total}</div>
-                  <div className="px-4 py-3 flex justify-center">
-                    <span
-                      className={`inline-flex items-center justify-center 
-                                  min-w-[70px] h-8 px-3 rounded-full text-xs font-bold ${rateColor}`}
-                    >
-                      {row.Rate}
-                    </span>
-                  </div>
-                </div>
-
-                {/* ✅ Mobile Card */}
-                <div className="md:hidden p-3">
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-neutral-300">
-                    <p className="font-semibold text-neutral-400">{breakdownView}:</p>
-                    <p className="text-white">{row.name}</p>
-
-                    <p className="font-semibold text-neutral-400">Present:</p>
-                    <p className="text-green-400 font-medium">{row.Present}</p>
-
-                    <p className="font-semibold text-neutral-400">Absent:</p>
-                    <p className="text-red-400 font-medium">{row.Absent}</p>
-
-                    <p className="font-semibold text-neutral-400">Late:</p>
-                    <p className="text-yellow-400 font-medium">{row.Late}</p>
-
-                    <p className="font-semibold text-neutral-400">Total:</p>
-                    <p className="text-white">{row.Total}</p>
-
-                    <p className="font-semibold text-neutral-400">Rate:</p>
-                    <span
-                      className={`inline-flex items-center justify-center 
-                                  min-w-[70px] h-7 px-2 rounded-full text-xs font-bold ${rateColor}`}
-                    >
-                      {row.Rate}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ✅ Raw Logs Table (Compact Mobile Version) */}
+    {/* Breakdown Table */}
+    {breakdownView !== "None" && (
       <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg mt-6">
         {/* Header (desktop only) */}
         <div className="hidden md:grid grid-cols-6 bg-gradient-to-r from-emerald-500/10 to-green-600/10 
-                        text-emerald-300 font-semibold text-xs uppercase tracking-wide border-b border-neutral-700">
-          <div className="px-4 py-3">Student ID</div>
-          <div className="px-4 py-3">Name</div>
-          <div className="px-4 py-3">Course</div>
-          <div className="px-4 py-3">Subject</div>
-          <div className="px-4 py-3">Status</div>
-          <div className="px-4 py-3">Date</div>
+                        text-green-300 font-semibold text-xs uppercase tracking-wide border-b border-neutral-700">
+          <div className="px-4 py-3">{breakdownView}</div>
+          <div className="px-4 py-3">Present</div>
+          <div className="px-4 py-3">Absent</div>
+          <div className="px-4 py-3">Late</div>
+          <div className="px-4 py-3">Total</div>
+          <div className="px-4 py-3 text-center">Rate</div>
         </div>
 
-        {loading ? (
-          <div className="px-4 py-6 text-center text-neutral-400 italic">
-            Loading logs...
-          </div>
-        ) : filteredLogs.length > 0 ? (
-          filteredLogs.map((log, idx) => (
+        {/* Rows */}
+        {breakdownData.map((row, idx) => {
+          const rateValue = parseFloat(row.Rate.toString().replace("%", "")) || 0;
+
+          let rateColor =
+            rateValue >= 80
+              ? "bg-gradient-to-r from-emerald-500/30 to-green-600/30 text-emerald-300 border border-emerald-500/40"
+              : rateValue >= 50
+              ? "bg-gradient-to-r from-amber-400/30 to-orange-600/30 text-amber-300 border border-amber-500/40"
+              : "bg-gradient-to-r from-red-500/30 to-rose-700/30 text-red-300 border border-red-500/40";
+
+          return (
             <div
               key={idx}
-              className={`border-b border-neutral-700 
+              className={`grid md:grid-cols-6 text-sm 
+                          border-b border-neutral-700 
+                          transition duration-300
                           ${idx % 2 === 0 ? "bg-neutral-900/40" : "bg-neutral-800/40"}
                           hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-green-600/10 
-                          transition duration-300`}
+                          hover:shadow-lg hover:shadow-emerald-500/20`}
             >
-              {/* Desktop Row */}
-              <div className="hidden md:grid grid-cols-6 text-sm text-white">
-                <div className="px-4 py-3">{log.student_id}</div>
-                <div className="px-4 py-3">{log.first_name} {log.last_name}</div>
-                <div className="px-4 py-3">{log.course}</div>
-                <div className="px-4 py-3">{log.subject_code}</div>
-                <div className="px-4 py-3">
+              {/* ✅ Desktop Row */}
+              <div className="hidden md:contents text-white">
+                <div className="px-4 py-3">{row.name}</div>
+                <div className="px-4 py-3 text-green-400 font-medium">{row.Present}</div>
+                <div className="px-4 py-3 text-red-400 font-medium">{row.Absent}</div>
+                <div className="px-4 py-3 text-yellow-400 font-medium">{row.Late}</div>
+                <div className="px-4 py-3 font-medium">{row.Total}</div>
+                <div className="px-4 py-3 flex justify-center">
                   <span
-                    className={`px-2 py-1 rounded-full text-xs font-bold
-                      ${
-                        log.status === "Present"
-                          ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 text-emerald-400"
-                          : log.status === "Absent"
-                          ? "bg-gradient-to-r from-red-500/20 to-rose-700/20 text-red-400"
-                          : "bg-gradient-to-r from-amber-400/20 to-orange-600/20 text-amber-400"
-                      }`}
+                    className={`inline-flex items-center justify-center 
+                                min-w-[70px] h-8 px-3 rounded-full text-xs font-bold ${rateColor}`}
                   >
-                    {log.status}
+                    {row.Rate}
                   </span>
-                </div>
-                <div className="px-4 py-3 text-neutral-400">
-                  {new Date(log.date).toLocaleDateString()}
                 </div>
               </div>
 
-              {/* Mobile Card (Compact) */}
+              {/* ✅ Mobile Card (dropdown style) */}
               <div className="md:hidden p-3 text-sm text-neutral-300">
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                  <p className="font-semibold text-neutral-400">ID:</p>
-                  <p className="text-white">{log.student_id}</p>
+                <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                  {/* Main Info */}
+                  <div>
+                    <p className="font-semibold text-white truncate">{row.name}</p>
+                  </div>
 
-                  <p className="font-semibold text-neutral-400">Name:</p>
-                  <p className="text-white truncate">{log.first_name} {log.last_name}</p>
-
-                  <p className="font-semibold text-neutral-400">Course:</p>
-                  <p>{log.course}</p>
-
-                  <p className="font-semibold text-neutral-400">Subject:</p>
-                  <p>{log.subject_code}</p>
-
-                  <p className="font-semibold text-neutral-400">Status:</p>
+                  {/* Rate Badge */}
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-bold w-fit
-                      ${
-                        log.status === "Present"
-                          ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 text-emerald-400"
-                          : log.status === "Absent"
-                          ? "bg-gradient-to-r from-red-500/20 to-rose-700/20 text-red-400"
-                          : "bg-gradient-to-r from-amber-400/20 to-orange-600/20 text-amber-400"
-                      }`}
+                    className={`inline-flex items-center justify-center 
+                                min-w-[70px] h-6 px-2 rounded-full text-xs font-bold ${rateColor}`}
                   >
-                    {log.status}
+                    {row.Rate}
                   </span>
 
-                  <p className="font-semibold text-neutral-400">Date:</p>
-                  <p>{new Date(log.date).toLocaleDateString()}</p>
+                  {/* Toggle Button */}
+                  <button
+                    onClick={() => toggleRow(idx)}
+                    className="text-neutral-400 hover:text-emerald-400 transition"
+                  >
+                    {expandedRows[idx] ? <FaChevronUp /> : <FaChevronDown />}
+                  </button>
                 </div>
+
+                {/* Expanded Section */}
+                {expandedRows[idx] && (
+                <div className="mt-3 border-t border-neutral-700 pt-2 text-xs text-neutral-400 space-y-1">
+                  <p>
+                    <span className="font-semibold text-neutral-300">Present:</span>{" "}
+                    <span className="text-green-400 font-medium">{row.Present}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-neutral-300">Absent:</span>{" "}
+                    <span className="text-red-400 font-medium">{row.Absent}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-neutral-300">Late:</span>{" "}
+                    <span className="text-yellow-400 font-medium">{row.Late}</span>
+                  </p>
+                  <p>
+                    <span className="font-semibold text-neutral-300">Total:</span>{" "}
+                    <span className="text-white font-medium">{row.Total}</span>
+                  </p>
+                </div>
+              )}
               </div>
             </div>
-          ))
-        ) : (
-          <div className="px-4 py-6 text-center text-neutral-400 italic">
-            No attendance logs found
+          );
+        })}
+      </div>
+    )}
+
+      {/* ✅ Raw Logs Section */}
+      <div className="mt-10">
+        {/* Section Header */}
+        <h3 className="text-lg md:text-xl font-extrabold mb-4 
+                      text-white
+                      bg-clip-text flex items-center gap-2">
+               Attendance Raw Logs
+        </h3>
+
+        {/* ✅ Raw Logs Table (Enhanced) */}
+        <div className="rounded-xl border border-neutral-700 overflow-hidden shadow-lg">
+          {/* Header (desktop only) */}
+          <div className="hidden md:grid grid-cols-6 bg-gradient-to-r from-emerald-500/10 to-green-600/10 
+                          text-emerald-300 font-semibold text-xs uppercase tracking-wide border-b border-neutral-700">
+            <div className="px-4 py-3">Student ID</div>
+            <div className="px-4 py-3">Name</div>
+            <div className="px-4 py-3">Course</div>
+            <div className="px-4 py-3">Subject</div>
+            <div className="px-4 py-3">Status</div>
+            <div className="px-4 py-3">Date</div>
           </div>
-        )}
+
+          {loading ? (
+            <div className="px-4 py-6 text-center text-neutral-400 italic">
+              Loading logs...
+            </div>
+          ) : filteredLogs.length > 0 ? (
+            filteredLogs.map((log, idx) => (
+              <div
+                key={idx}
+                className={`border-b border-neutral-700 
+                            ${idx % 2 === 0 ? "bg-neutral-900/40" : "bg-neutral-800/40"}
+                            hover:bg-gradient-to-r hover:from-emerald-500/10 hover:to-green-600/10 
+                            transition duration-300`}
+              >
+                {/* Desktop Row */}
+                <div className="hidden md:grid grid-cols-6 text-sm text-white">
+                  <div className="px-4 py-3">{log.student_id}</div>
+                  <div className="px-4 py-3">{log.first_name} {log.last_name}</div>
+                  <div className="px-4 py-3">{log.course}</div>
+                  <div className="px-4 py-3">{log.subject_code}</div>
+                  <div className="px-4 py-3">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-bold
+                        ${
+                          log.status === "Present"
+                            ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 text-emerald-400"
+                            : log.status === "Absent"
+                            ? "bg-gradient-to-r from-red-500/20 to-rose-700/20 text-red-400"
+                            : "bg-gradient-to-r from-amber-400/20 to-orange-600/20 text-amber-400"
+                        }`}
+                    >
+                      {log.status}
+                    </span>
+                  </div>
+                  <div className="px-4 py-3 text-neutral-400">
+                    {new Date(log.date).toLocaleDateString()}
+                  </div>
+                </div>
+
+                {/* Mobile Card (Compact + Expandable) */}
+                <div className="md:hidden p-3 text-sm text-neutral-300">
+                  <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
+                    {/* Main Info */}
+                    <div>
+                      <p className="text-xs text-neutral-400">ID: {log.student_id}</p>
+                      <p className="font-semibold text-white truncate">
+                        {log.first_name} {log.last_name}
+                      </p>
+                    </div>
+
+                    {/* Status (always aligned) */}
+                    <span
+                      className={`inline-flex items-center justify-center 
+                                  min-w-[70px] h-6 px-2 rounded-full text-xs font-bold
+                                  ${
+                                    log.status === "Present"
+                                      ? "bg-gradient-to-r from-emerald-500/20 to-green-600/20 text-emerald-400"
+                                      : log.status === "Absent"
+                                      ? "bg-gradient-to-r from-red-500/20 to-rose-700/20 text-red-400"
+                                      : "bg-gradient-to-r from-amber-400/20 to-orange-600/20 text-amber-400"
+                                  }`}
+                    >
+                      {log.status}
+                    </span>
+
+                    {/* Toggle Button */}
+                    <button
+                      onClick={() => toggleRow(idx)}
+                      className="text-neutral-400 hover:text-emerald-400 transition"
+                    >
+                      {expandedRows[idx] ? <FaChevronUp /> : <FaChevronDown />}
+                    </button>
+                  </div>
+
+                  {/* Expanded Section */}
+                  {expandedRows[idx] && (
+                    <div className="mt-3 border-t border-neutral-700 pt-2 text-xs text-neutral-400 space-y-1">
+                      <p><span className="font-semibold text-neutral-300">Course:</span> {log.course}</p>
+                      <p><span className="font-semibold text-neutral-300">Subject:</span> {log.subject_code}</p>
+                      <p><span className="font-semibold text-neutral-300">Date:</span> {new Date(log.date).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-6 text-center text-neutral-400 italic">
+              No attendance logs found
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

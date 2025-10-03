@@ -181,7 +181,7 @@ const StudentManagementComponent = () => {
   };
 
   return (
-    <div className="bg-neutral-950/80 text-white p-8 rounded-2xl shadow-xl space-y-10 backdrop-blur-lg border border-white/10">
+    <div className="bg-neutral-950/80 text-white p-8 rounded-2xl shadow-xl space-y-10 backdrop-blur-lg">
       {/* Header + Filters */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <h2 className="text-3xl font-extrabold flex items-center gap-3">

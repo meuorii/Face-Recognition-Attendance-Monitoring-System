@@ -44,8 +44,8 @@ const InstructorAssignmentComponent = () => {
 
   return (
     <div className="bg-neutral-950 
-                    backdrop-blur-xl border border-white/10 shadow-2xl 
-                    rounded-2xl p-12 space-y-8 max-w-7xl mx-auto animate-fadeIn">
+                    backdrop-blur-xl shadow-2xl 
+                    rounded-2xl p-8 space-y-8 max-w-7xl mx-auto animate-fadeIn">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
