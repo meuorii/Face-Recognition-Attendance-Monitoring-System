@@ -114,14 +114,14 @@ const StudentsInClass = () => {
             value={selectedClass}
             disabled={loadingClasses}
           >
-            <option value="">— Choose a Class —</option>
+            <option value="" className="bg-neutral-900 text-white">— Choose a Class —</option>
             {classes.map((c) => {
               const fullTitle = `${c.subject_code} — ${c.subject_title}`;
               return (
                 <option
                   key={c._id}
                   value={c._id}
-                  className="truncate sm:whitespace-normal" // ✅ truncate only on mobile
+                  className="truncate sm:whitespace-normal bg-neutral-900 text-white" 
                 >
                   {fullTitle}
                 </option>
@@ -169,7 +169,7 @@ const StudentsInClass = () => {
             {/* Desktop table */}
             <div className="hidden sm:block overflow-x-hidden rounded-xl border border-white/10 shadow-lg backdrop-blur-sm">
               <table className="min-w-full text-sm">
-                <thead className="sticky top-0 bg-gradient-to-r from-neutral-900/80 to-neutral-800/80 text-emerald-400 z-10">
+                <thead className="sticky top-0 bg-gradient-to-r from-emerald-500/10 to-emerald-600/10 text-emerald-300 z-10">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold">Student ID</th>
                     <th className="px-4 py-3 text-left font-semibold">Full Name</th>

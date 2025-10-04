@@ -143,7 +143,7 @@ const StudentOverview = () => {
       </h2>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         {[
           { label: "Classes Enrolled", value: overviewData.totalClasses },
           { label: "Total Sessions", value: overviewData.totalSessions },

@@ -15,6 +15,8 @@ import {
   FaCalendarAlt,
   FaClipboardList,
   FaListUl,
+  FaChevronDown,
+  FaChevronUp
 } from "react-icons/fa";
 import {
   PieChart,
@@ -26,6 +28,8 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
+  Legend,
+  LabelList
 } from "recharts";
 import { useModal } from "./ModalManager";
 import DailyLogsModal from "./DailyLogsModal";
@@ -229,6 +233,104 @@ const AttendanceReport = () => {
     Late: log.late,
   }));
 
+   // --- Mobile Student Card ---
+  const StudentCard = ({ log }) => {
+    const [open, setOpen] = useState(false);
+    const fullName = `${log.first_name} ${log.last_name}`;
+
+    return (
+      <div
+          className={`p-4 rounded-xl bg-neutral-900/70 border border-white/10 shadow-md 
+                      hover:shadow-xl hover:shadow-emerald-500/20 hover:border-emerald-400/40 
+                      transform hover:-translate-y-1 hover:scale-[1.02] 
+                      transition-all duration-500 ease-out relative overflow-hidden`}
+        >
+          {/* Animated gradient border glow */}
+          <div className="absolute inset-0 rounded-xl pointer-events-none opacity-0 hover:opacity-100 transition-opacity duration-700">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 blur-xl opacity-20 animate-pulse" />
+          </div>
+
+          {/* Row 1: Student ID */}
+          <div className="text-sm font-medium mb-2">
+            <span className="text-gray-300 font-semibold">Student ID:</span>{" "}
+            <span className="text-white">{log.student_id}</span>
+          </div>
+
+          {/* Row 2: Name | View button */}
+          <div className="flex items-center justify-between text-sm font-medium mb-3">
+            <span className="text-gray-300 font-semibold">
+              Name:{" "}
+              <span className="text-emerald-300 font-medium">{fullName}</span>
+            </span>
+
+            <button
+              onClick={() =>
+                openModal(
+                  <DailyLogsModal
+                    student={log}
+                    startDate={startDate}
+                    endDate={endDate}
+                    statusFilter={statusFilter}
+                    selectedClass={classes.find(
+                      (c) => (c.class_id || c._id) === selectedClass
+                    )}
+                  />
+                )
+              }
+              className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium 
+                        text-emerald-400 rounded-md 
+                        bg-emerald-500/10 border border-emerald-500/20
+                        transition-all duration-300 ease-in-out 
+                        hover:text-white hover:bg-emerald-500/80 
+                        hover:shadow-lg hover:shadow-emerald-400/30 hover:scale-105 cursor-pointer"
+            >
+              <FaListUl className="text-base transition-transform duration-300 group-hover:rotate-6" />
+              <span>View</span>
+            </button>
+          </div>
+
+          {/* Dropdown Toggle */}
+          <button
+            onClick={() => setOpen(!open)}
+            className="w-full text-xs text-gray-400 hover:text-emerald-400 
+                      flex justify-between items-center transition-all duration-300 cursor-pointer"
+          >
+            <span className="font-medium tracking-wide">
+              Attendance Details
+            </span>
+            <span
+              className={`transform transition-transform duration-300 ${
+                open ? "rotate-180 text-emerald-400" : "rotate-0 text-gray-400"
+              }`}
+            >
+              <FaChevronDown />
+            </span>
+          </button>
+
+          {/* Dropdown Content with smoother expansion */}
+          <div
+            className={`overflow-hidden transition-all duration-700 ease-in-out 
+                        ${open ? "max-h-48 opacity-100 mt-3" : "max-h-0 opacity-0"}`}
+          >
+            <div className="space-y-1 text-sm px-1">
+              <p className="text-emerald-400 font-semibold">
+                Present: {log.present}
+              </p>
+              <p className="text-red-400 font-semibold">
+                Absent: {log.absent}
+              </p>
+              <p className="text-yellow-400 font-semibold">
+                Late: {log.late}
+              </p>
+              <p className="text-gray-300 font-bold">
+                Total: {log.total_attendances}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
   return (
     <div className="p-8 bg-neutral-950/80 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl">
       {/* Header */}
@@ -240,101 +342,154 @@ const AttendanceReport = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-10">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:flex lg:flex-row gap-4 mb-10">
+
+        {/* Class Selector */}
         <select
           value={selectedClass}
           onChange={(e) => setSelectedClass(e.target.value)}
           disabled={loadingClasses}
-          className="flex-1 px-4 py-3 rounded-lg bg-neutral-900/60 border border-white/10 text-white"
+          className="w-full px-4 py-2 sm:py-3 rounded-lg bg-neutral-900/60 
+                    border border-white/10 text-white
+                    focus:outline-none focus:ring-2 focus:ring-emerald-400
+                    hover:border-emerald-400/40 hover:shadow-lg hover:shadow-emerald-500/20
+                    transition-all duration-300 ease-in-out"
         >
-          <option value="">-- All Classes --</option>
+          <option value="" className="bg-neutral-900 text-white">-- All Classes --</option>
           {classes.map((c) => (
-            <option key={c._id} value={c.class_id || c._id}>
+            <option key={c._id} value={c.class_id || c._id} className="bg-neutral-900 text-white">
               {c.subject_code} – {c.subject_title}
             </option>
           ))}
         </select>
 
-        <div className="flex items-center gap-2 bg-neutral-900/60 border border-white/10 rounded-lg px-3 py-2">
+        {/* Start Date */}
+        <div className="flex items-center gap-2 px-3 py-2 sm:py-3 rounded-lg 
+                        bg-neutral-900/60 border border-white/10 w-full
+                        hover:border-emerald-400/40 hover:shadow-md hover:shadow-emerald-500/20
+                        focus-within:ring-2 focus-within:ring-emerald-400
+                        transition-all duration-300 ease-in-out">
           <FaCalendarAlt className="text-emerald-400" />
           <DatePicker
             selected={startDate}
             onChange={(date) => setStartDate(date)}
             placeholderText="Start Date"
-            className="bg-transparent text-white outline-none"
+            className="bg-transparent text-white outline-none w-full text-sm sm:text-base"
           />
         </div>
 
-        <div className="flex items-center gap-2 bg-neutral-900/60 border border-white/10 rounded-lg px-3 py-2">
+        {/* End Date */}
+        <div className="flex items-center gap-2 px-3 py-2 sm:py-3 rounded-lg 
+                        bg-neutral-900/60 border border-white/10 w-full
+                        hover:border-emerald-400/40 hover:shadow-md hover:shadow-emerald-500/20
+                        focus-within:ring-2 focus-within:ring-emerald-400
+                        transition-all duration-300 ease-in-out">
           <FaCalendarAlt className="text-emerald-400" />
           <DatePicker
             selected={endDate}
             onChange={(date) => setEndDate(date)}
             placeholderText="End Date"
-            className="bg-transparent text-white outline-none"
+            className="bg-transparent text-white outline-none w-full text-sm sm:text-base"
           />
         </div>
 
+        {/* Status Filter */}
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-3 rounded-lg bg-neutral-900/60 border border-white/10 text-white"
+          className="w-full px-4 py-2 sm:py-3 rounded-lg bg-neutral-900/60 
+                    border border-white/10 text-white
+                    focus:outline-none focus:ring-2 focus:ring-emerald-400
+                    hover:border-emerald-400/40 hover:shadow-lg hover:shadow-emerald-500/20
+                    transition-all duration-300 ease-in-out"
         >
-          <option>All</option>
-          <option>Present</option>
-          <option>Absent</option>
-          <option>Late</option>
-        </select>
+          <option className="bg-neutral-900 text-white">All</option>
+          <option className="bg-neutral-900 text-white">Present</option>
+          <option className="bg-neutral-900 text-white">Absent</option>
+          <option className="bg-neutral-900 text-white">Late</option>
+        </select> 
 
+        {/* Filter Button */}
         <button
           onClick={fetchLogs}
           disabled={loadingLogs}
-          className="px-6 py-3 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold shadow"
+          className="col-span-2 lg:w-auto w-full px-5 py-2 sm:px-6 sm:py-3 rounded-lg bg-gradient-to-r 
+                    from-emerald-500 to-green-600 text-white font-semibold shadow
+                    hover:from-green-600 hover:to-emerald-700 hover:shadow-lg hover:shadow-emerald-500/30
+                    active:scale-95 transition-all duration-300 ease-in-out
+                    disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loadingLogs ? "Loading..." : "Filter"}
         </button>
       </div>
 
+
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         {[
-          { label: "Total Students", value: totalStudents },
-          { label: "Total Sessions", value: totalSessions },
-          { label: "Total Records", value: totalRecords },
-          { label: "Attendance Rate", value: `${attendanceRate}%`, highlight: true },
+          {
+            label: "Total Students",
+            value: totalStudents,
+            bg: "from-sky-500/20 to-blue-700/10",
+            text: "text-sky-400",
+            hover: "hover:shadow-sky-500/30",
+          },
+          {
+            label: "Total Sessions",
+            value: totalSessions,
+            bg: "from-purple-500/20 to-indigo-700/10",
+            text: "text-purple-400",
+            hover: "hover:shadow-purple-500/30",
+          },
+          {
+            label: "Total Records",
+            value: totalRecords,
+            bg: "from-pink-500/20 to-rose-700/10",
+            text: "text-pink-400",
+            hover: "hover:shadow-pink-500/30",
+          },
+          {
+            label: "Attendance Rate",
+            value: `${attendanceRate}%`,
+            highlight: true,
+          },
         ].map((card, i) => {
-          // ✅ Dynamic color logic for Attendance Rate
-          let bgClass = "bg-neutral-900/60";
-          let textClass = "text-white";
+          // ✅ Default values
+          let bgClass = `bg-gradient-to-br ${card.bg || "from-neutral-700/30 to-neutral-800/20"}`;
+          let textClass = card.text || "text-white";
+          let hoverClass = card.hover || "hover:shadow-emerald-500/30";
 
           if (card.highlight) {
             const rate = parseFloat(attendanceRate) || 0;
             if (rate < 50) {
-              // 🔴 Low attendance
-              bgClass = "bg-gradient-to-br from-red-600/20 to-red-900/10";
+              bgClass = "bg-gradient-to-br from-red-600/30 to-red-900/20";
               textClass = "text-red-400";
+              hoverClass = "hover:shadow-red-500/30";
             } else if (rate < 80) {
-              // 🟠 Mid attendance
-              bgClass = "bg-gradient-to-br from-yellow-500/20 to-yellow-800/10";
+              bgClass = "bg-gradient-to-br from-yellow-500/30 to-yellow-800/20";
               textClass = "text-yellow-400";
+              hoverClass = "hover:shadow-yellow-500/30";
             } else {
-              // 🟢 High attendance
-              bgClass = "bg-gradient-to-br from-emerald-500/20 to-green-700/10";
+              bgClass = "bg-gradient-to-br from-emerald-500/30 to-green-700/20";
               textClass = "text-emerald-400";
+              hoverClass = "hover:shadow-emerald-500/30";
             }
           }
 
           return (
             <div
               key={i}
-              className={`p-5 rounded-xl border border-white/10 shadow-lg ${bgClass}`}
+              className={`p-5 rounded-xl border border-white/10 shadow-md ${bgClass} 
+                          transition-all duration-300 ease-in-out 
+                          hover:scale-[1.03] hover:shadow-xl ${hoverClass}`}
             >
-              <p className="text-gray-400 text-sm">{card.label}</p>
-              <p className={`text-2xl font-bold ${textClass}`}>{card.value}</p>
+              <p className="text-gray-300 text-sm mb-2">{card.label}</p>
+              <p className={`text-2xl font-extrabold ${textClass}`}>{card.value}</p>
             </div>
           );
         })}
       </div>
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
@@ -342,43 +497,109 @@ const AttendanceReport = () => {
           <h3 className="text-lg font-semibold text-emerald-400 mb-4">
             Status Distribution
           </h3>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={340}>
             <PieChart>
               {/* ✅ Gradient definitions */}
               <defs>
                 <linearGradient id="gradPresent" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#34d399" /> {/* emerald-400 */}
-                  <stop offset="100%" stopColor="#059669" /> {/* emerald-600 */}
+                  <stop offset="0%" stopColor="#6ee7b7" />
+                  <stop offset="100%" stopColor="#047857" />
                 </linearGradient>
                 <linearGradient id="gradAbsent" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#f87171" /> {/* red-400 */}
-                  <stop offset="100%" stopColor="#b91c1c" /> {/* red-700 */}
+                  <stop offset="0%" stopColor="#fca5a5" />
+                  <stop offset="100%" stopColor="#7f1d1d" />
                 </linearGradient>
                 <linearGradient id="gradLate" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#facc15" /> {/* yellow-400 */}
-                  <stop offset="100%" stopColor="#ca8a04" /> {/* yellow-600 */}
+                  <stop offset="0%" stopColor="#fde047" />
+                  <stop offset="100%" stopColor="#78350f" />
                 </linearGradient>
               </defs>
-              {/* ✅ Pie with gradient cells */}
+
+              {/* ✅ Rose chart style (radius based on value) */}
               <Pie
                 data={pieData}
                 dataKey="value"
                 nameKey="name"
-                outerRadius={100}
-                label
+                cx="50%"
+                cy="50%"
+                innerRadius={40}
+                outerRadius={120}
+                paddingAngle={4}
+                cornerRadius={8}
+                stroke="none"
+                strokeWidth={2}
+                label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`} 
+                isAnimationActive={true}
+                animationDuration={1000}
               >
-                <Cell fill="url(#gradPresent)" />
-                <Cell fill="url(#gradAbsent)" />
-                <Cell fill="url(#gradLate)" />
+                <Cell
+                  fill="url(#gradPresent)"
+                  style={{
+                    cursor: "pointer",
+                    transition: "all 0.3s ease-in-out",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.filter =
+                      "drop-shadow(0 6px 14px rgba(16,185,129,0.8))")
+                  }
+                  onMouseLeave={(e) => (e.target.style.filter = "none")}
+                />
+
+                <Cell
+                  fill="url(#gradAbsent)"
+                  style={{
+                    cursor: "pointer",
+                    transition: "all 0.3s ease-in-out",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.filter =
+                      "drop-shadow(0 6px 14px rgba(239,68,68,0.8))")
+                  }
+                  onMouseLeave={(e) => (e.target.style.filter = "none")}
+                />
+
+                <Cell
+                  fill="url(#gradLate)"
+                  style={{
+                    cursor: "pointer",
+                    transition: "all 0.3s ease-in-out",
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.target.style.filter =
+                      "drop-shadow(0 6px 14px rgba(234,179,8,0.8))")
+                  }
+                  onMouseLeave={(e) => (e.target.style.filter = "none")}
+                />
               </Pie>
+
+              {/* ✅ Tooltip */}
               <Tooltip
                 contentStyle={{
-                  background: "rgba(17, 24, 39, 0.8)", // glassy black
-                  backdropFilter: "blur(10px)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "8px",
+                  background: "rgba(17, 24, 39, 0.9)",
+                  backdropFilter: "blur(12px)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: "10px",
                 }}
-                itemStyle={{ color: "#fff" }}
+                itemStyle={{ color: "#fff", fontWeight: 500 }}
+              />
+
+              {/* ✅ Legend with matching slice colors */}
+              <Legend
+                verticalAlign="bottom"
+                align="center"
+                iconType="circle"
+                formatter={(value) => {
+                  const colors = {
+                    Present: "#34d399",
+                    Absent: "#ef4444",
+                    Late: "#facc15",
+                  };
+                  return (
+                    <span style={{ color: colors[value] || "#d1d5db", fontSize: "0.9rem" }}>
+                      {value}
+                    </span>
+                  );
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -388,8 +609,12 @@ const AttendanceReport = () => {
           <h3 className="text-lg font-semibold text-emerald-400 mb-4">
             Per Student Breakdown
           </h3>
-         <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={barData}>
+         <ResponsiveContainer width="100%" height={360}>
+          <BarChart
+            data={barData}
+            barGap={8}
+            barCategoryGap="15%"
+          >
             {/* ✅ Gradient defs for bars */}
             <defs>
               <linearGradient id="gradPresentBar" x1="0" y1="0" x2="0" y2="1">
@@ -407,24 +632,69 @@ const AttendanceReport = () => {
             </defs>
 
             {/* ✅ Axis styles */}
-            <XAxis dataKey="name" stroke="#9ca3af" />
-            <YAxis stroke="#9ca3af" />
+           <XAxis
+              dataKey="name"
+              interval={0}
+              tick={({ x, y, payload }) => {
+                const words = payload.value.split(" ");
+                return (
+                  <text x={x} y={y + 10} textAnchor="middle" fill="#d1d5db" fontSize={10}>
+                    {words.map((word, index) => (
+                      <tspan key={index} x={x} dy={index === 0 ? 0 : 12}>
+                        {word}
+                      </tspan>
+                    ))}
+                  </text>
+                );
+              }}
+            />
+            <YAxis stroke="#9ca3af" tick={{ fill: "#d1d5db", fontSize: 12 }} />
 
             {/* ✅ Glassy tooltip */}
             <Tooltip
               contentStyle={{
-                background: "rgba(17, 24, 39, 0.8)", // glassy black
-                backdropFilter: "blur(10px)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "8px",
+                background: "rgba(17, 24, 39, 0.85)", // glassy black
+                backdropFilter: "blur(12px)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: "10px",
+                padding: "8px 12px",
               }}
-              itemStyle={{ color: "#fff" }}
+              itemStyle={{ color: "#fff", fontWeight: 500 }}
             />
 
-            {/* ✅ Gradient bars */}
-            <Bar dataKey="Present" fill="url(#gradPresentBar)" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="Absent" fill="url(#gradAbsentBar)" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="Late" fill="url(#gradLateBar)" radius={[6, 6, 0, 0]} />
+            {/* ✅ Gradient bars with labels + hover glow */}
+            <Bar
+              dataKey="Present"
+              fill="url(#gradPresentBar)"
+              radius={[6, 6, 0, 0]}
+              animationDuration={1200}
+              onMouseOver={(e) => (e.target.style.filter = "drop-shadow(0 4px 12px rgba(16,185,129,0.6))")}
+              onMouseOut={(e) => (e.target.style.filter = "none")}
+            >
+              <LabelList dataKey="Present" position="top" fill="#34d399" fontSize={12} fontWeight="600" />
+            </Bar>
+
+            <Bar
+              dataKey="Absent"
+              fill="url(#gradAbsentBar)"
+              radius={[6, 6, 0, 0]}
+              animationDuration={1200}
+              onMouseOver={(e) => (e.target.style.filter = "drop-shadow(0 4px 12px rgba(239,68,68,0.6))")}
+              onMouseOut={(e) => (e.target.style.filter = "none")}
+            >
+              <LabelList dataKey="Absent" position="top" fill="#f87171" fontSize={12} fontWeight="600" />
+            </Bar>
+
+            <Bar
+              dataKey="Late"
+              fill="url(#gradLateBar)"
+              radius={[6, 6, 0, 0]}
+              animationDuration={1200}
+              onMouseOver={(e) => (e.target.style.filter = "drop-shadow(0 4px 12px rgba(234,179,8,0.6))")}
+              onMouseOut={(e) => (e.target.style.filter = "none")}
+            >
+              <LabelList dataKey="Late" position="top" fill="#fde047" fontSize={12} fontWeight="600" />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
         </div>
@@ -433,9 +703,10 @@ const AttendanceReport = () => {
       {/* Table */}
       {logs.length > 0 ? (
         <>
-          <div className="overflow-x-auto rounded-xl border border-white/10 shadow-lg">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-hidden rounded-xl border border-white/10 shadow-lg">
             <table className="min-w-full text-sm text-left text-gray-300">
-              <thead className="bg-gradient-to-r from-emerald-500 to-green-600 text-white">
+              <thead className="bg-gradient-to-r from-emerald-500/10 to-green-600/10 text-emerald-300">
                 <tr>
                   <th className="px-4 py-3">Student ID</th>
                   <th>Name</th>
@@ -456,21 +727,37 @@ const AttendanceReport = () => {
                   .map((log, index) => (
                     <tr
                       key={index}
-                      className={`transition-colors ${
+                      onClick={() =>
+                        openModal(
+                          <DailyLogsModal
+                            student={log}
+                            startDate={startDate}
+                            endDate={endDate}
+                            statusFilter={statusFilter}
+                            selectedClass={classes.find(
+                              (c) => (c.class_id || c._id) === selectedClass
+                            )}
+                          />
+                        )
+                      }
+                      className={`transition-all duration-300 ease-in-out transform cursor-pointer ${
                         index % 2 ? "bg-neutral-900/50" : "bg-neutral-800/50"
-                      } hover:bg-emerald-500/10`}
+                      } hover:bg-emerald-600/20 hover:scale-[1.02] hover:shadow-lg rounded-lg`}
                     >
-                      <td className="px-4 py-3">{log.student_id}</td>
-                      <td className="font-medium text-white">
+                      <td className="px-4 py-3 text-sm text-gray-300">{log.student_id}</td>
+                      <td className="px-4 py-3 font-medium text-white whitespace-nowrap">
                         {`${log.first_name} ${log.last_name}`}
                       </td>
-                      <td className="text-emerald-400 font-semibold">{log.present}</td>
-                      <td className="text-red-400 font-semibold">{log.absent}</td>
-                      <td className="text-yellow-400 font-semibold">{log.late}</td>
-                      <td className="text-white">{log.total_attendances}</td>
-                      <td>
+                      <td className="px-4 py-3 text-emerald-400 font-semibold">
+                        {log.present}
+                      </td>
+                      <td className="px-4 py-3 text-red-400 font-semibold">{log.absent}</td>
+                      <td className="px-4 py-3 text-yellow-400 font-semibold">{log.late}</td>
+                      <td className="px-4 py-3 text-white">{log.total_attendances}</td>
+                      <td className="px-4 py-3">
                         <button
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation(); 
                             openModal(
                               <DailyLogsModal
                                 student={log}
@@ -481,11 +768,17 @@ const AttendanceReport = () => {
                                   (c) => (c.class_id || c._id) === selectedClass
                                 )}
                               />
-                            )
-                          }
-                          className="text-sm text-emerald-400 hover:underline flex items-center gap-1"
+                            );
+                          }}
+                          className="group relative flex items-center gap-1 text-sm text-emerald-400 
+                                    transition-all duration-300 ease-in-out transform hover:scale-105"
                         >
-                          <FaListUl /> View
+                          <FaListUl className="text-base transition-colors duration-300 group-hover:text-emerald-300 drop-shadow-sm" />
+                          <span className="relative">
+                            View
+                            {/* Underline animation */}
+                            <span className="absolute left-0 -bottom-0.5 w-0 h-[2px] bg-emerald-400 transition-all duration-300 group-hover:w-full"></span>
+                          </span>
                         </button>
                       </td>
                     </tr>
@@ -493,6 +786,20 @@ const AttendanceReport = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+            {logs
+              .filter(
+                (log) =>
+                  statusFilter === "All" ||
+                  log.statuses.some((s) => s.status === statusFilter)
+              )
+              .map((log, index) => (
+                <StudentCard key={index} log={log} />
+              ))}
+          </div>
+
 
           {/* Export Button */}
           <div className="flex justify-end mt-6">

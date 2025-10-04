@@ -116,7 +116,7 @@ const Subjects = ({ onActivateSession }) => {
           {classes.map((c, idx) => (
             <div
               key={c._id || idx}
-              className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 
+              className="bg-neutral-900 backdrop-blur-md rounded-2xl p-6 border border-white/10 
                 hover:border-emerald-400/50 hover:shadow-lg hover:shadow-emerald-500/30 
                 transition-all duration-300 transform hover:-translate-y-1 flex flex-col"
             >

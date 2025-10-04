@@ -252,21 +252,21 @@ const InstructorOverview = () => {
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-emerald-400">
             <FaChartLine /> Attendance Trend
           </h3>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={340}>
           <LineChart data={attendanceTrend}>
             {/* ✅ Gradient defs */}
             <defs>
               <linearGradient id="gradPresent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
+                <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#059669" stopOpacity={0.1} />
               </linearGradient>
               <linearGradient id="gradLate" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#facc15" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#facc15" stopOpacity={0.1} />
+                <stop offset="0%" stopColor="#fde047" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#ca8a04" stopOpacity={0.1} />
               </linearGradient>
               <linearGradient id="gradAbsent" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0.1} />
+                <stop offset="0%" stopColor="#f87171" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#b91c1c" stopOpacity={0.1} />
               </linearGradient>
             </defs>
 
@@ -336,21 +336,21 @@ const InstructorOverview = () => {
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-emerald-400">
             <FaClipboardList /> Attendance Distribution
           </h3>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={340}>
           <PieChart>
             {/* ✅ Gradient definitions */}
             <defs>
               <linearGradient id="gradGreen" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={1} />
-                <stop offset="100%" stopColor="#16a34a" stopOpacity={0.7} />
+                <stop offset="0%" stopColor="#34d399" />
+                <stop offset="100%" stopColor="#059669" />
               </linearGradient>
               <linearGradient id="gradYellow" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#facc15" stopOpacity={1} />
-                <stop offset="100%" stopColor="#eab308" stopOpacity={0.7} />
+                <stop offset="0%" stopColor="#fde047" />
+                <stop offset="100%" stopColor="#ca8a04" />
               </linearGradient>
               <linearGradient id="gradRed" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
-                <stop offset="100%" stopColor="#dc2626" stopOpacity={0.7} />
+                <stop offset="0%" stopColor="#f87171" />
+                <stop offset="100%" stopColor="#b91c1c" />
               </linearGradient>
 
               {/* ✅ Glow filters */}
@@ -394,8 +394,8 @@ const InstructorOverview = () => {
               ]}
               cx="50%"
               cy="50%"
-              outerRadius={95}
-              innerRadius={43} // ✅ donut style
+              outerRadius={110}
+              innerRadius={40} // ✅ donut style
               paddingAngle={0}
               dataKey="value"
               labelLine={false}
