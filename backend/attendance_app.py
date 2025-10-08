@@ -24,19 +24,26 @@ LOG_URL       = f"{API_BASE}/log"
 
 POLL_INTERVAL = 5
 MATCH_THRESH  = 0.55
-SKIP_FRAMES   = 2            # denser updates for people walking in
-FRAME_SIZE    = (640, 480)
+SKIP_FRAMES   = 2
 PAD_RATIO     = 0.10
 AS_THRESHOLD  = 0.80
 AS_DOUBLECHK  = True
 WIN_NAME      = "Attendance Session"
 
+# Camera resolution presets
+CAMERA_QUALITY = "1080p"  # options: "720p", "1080p", "4k"
+RESOLUTIONS = {
+    "720p":  (1280, 720),
+    "1080p": (1920, 1080),
+    "4k":    (3840, 2160)
+}
+
 # Multi-face & tracking
 MAX_FACES              = 8
-MIN_FACE_SIZE          = 60          # ignore tiny faces; speeds up & reduces false positives
-IOU_MATCH_THRESH       = 0.30        # soft association to keep labels stable
-TRACK_TIMEOUT_SEC      = 1.5         # drop tracks that haven't been seen
-TRACK_COOLDOWN_SEC     = 0.75        # avoid re-running spoof/match every frame on same person
+MIN_FACE_SIZE          = 60
+IOU_MATCH_THRESH       = 0.30
+TRACK_TIMEOUT_SEC      = 1.5
+TRACK_COOLDOWN_SEC     = 0.75
 
 # Philippine Standard Time (UTC+8)
 PH_TZ = timezone(timedelta(hours=8))
@@ -229,9 +236,9 @@ def run_attendance_session(class_meta) -> bool:
         print("❌ Missing class_id in class_meta; aborting session.")
         return False
 
-    # Late grace (2 mins; change as needed)
+    # Late grace
     start_str = class_meta.get("attendance_start_time")
-    grace_period = 2 * 60
+    grace_period = 15 * 60
     start_dt = None
     if start_str:
         try:
@@ -246,16 +253,10 @@ def run_attendance_session(class_meta) -> bool:
 
     db = load_embeddings_for_class(class_meta)
     recognized_students = set()
-
-    # Simple IoU tracker state
     tracks: Dict[int, dict] = {}
     next_track_id = 1
-
-    frame_count = 0
-    faces = None
-    t_start_wall = time.time()
-    t_last_fps = _now()
-    fps = 0.0
+    frame_count, faces, fps = 0, None, 0.0
+    t_start_wall, t_last_fps = time.time(), _now()
 
     threading.Thread(target=poll_backend, args=(class_id,), daemon=True).start()
 
@@ -265,6 +266,16 @@ def run_attendance_session(class_meta) -> bool:
         print("❌ Camera not available.")
         return False
 
+    # --- Set camera resolution ---
+    W, H = RESOLUTIONS.get(CAMERA_QUALITY, (1920, 1080))
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  W)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
+    cap.set(cv2.CAP_PROP_FPS, 30)
+
+    actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"📷 Camera initialized at {actual_w}x{actual_h} @30FPS (Requested {CAMERA_QUALITY})")
+
     cv2.namedWindow(WIN_NAME, cv2.WINDOW_NORMAL)
 
     while session_active and not user_quit_app:
@@ -272,11 +283,10 @@ def run_attendance_session(class_meta) -> bool:
         if not ok:
             continue
 
-        frame = cv2.resize(frame, FRAME_SIZE)
         H, W = frame.shape[:2]
         frame_count += 1
 
-        # FPS (simple moving update)
+        # FPS
         now_perf = _now()
         dt = now_perf - t_last_fps
         if dt > 0:
@@ -287,7 +297,7 @@ def run_attendance_session(class_meta) -> bool:
         if frame_count % SKIP_FRAMES == 0 or faces is None:
             faces = face_app.get(frame)
 
-        # Build detections list: [(bbox, face_obj)]
+        # Build detections
         detections = []
         if faces:
             for f in faces:
@@ -297,11 +307,10 @@ def run_attendance_session(class_meta) -> bool:
                 if (x2 - x1) < MIN_FACE_SIZE or (y2 - y1) < MIN_FACE_SIZE:
                     continue
                 detections.append(((x1, y1, x2, y2), f))
-            # Keep largest K
             detections.sort(key=lambda it: (it[0][2]-it[0][0]) * (it[0][3]-it[0][1]), reverse=True)
             detections = detections[:MAX_FACES]
 
-        # Associate detections to existing tracks (greedy by IoU)
+        # IoU association
         unmatched_det_idxs = set(range(len(detections)))
         det_to_track: Dict[int, int] = {}
         for tid, t in list(tracks.items()):
@@ -315,11 +324,10 @@ def run_attendance_session(class_meta) -> bool:
             if best_iou >= IOU_MATCH_THRESH:
                 det_to_track[best_idx] = tid
                 unmatched_det_idxs.remove(best_idx)
-                # update bbox & last_seen immediately
                 tracks[tid]["bbox"] = detections[best_idx][0]
                 tracks[tid]["last_seen"] = now_perf
 
-        # Create tracks for unmatched detections
+        # New tracks
         for i in unmatched_det_idxs:
             det_bbox, _ = detections[i]
             tracks[next_track_id] = {
@@ -333,12 +341,12 @@ def run_attendance_session(class_meta) -> bool:
             det_to_track[i] = next_track_id
             next_track_id += 1
 
-        # Drop stale tracks
+        # Drop stale
         for tid in list(tracks.keys()):
             if now_perf - tracks[tid]["last_seen"] > TRACK_TIMEOUT_SEC:
                 del tracks[tid]
 
-        # Evaluate each assigned track (spoof + match) with cooldown
+        # Evaluate each assigned track
         for i, (bbox, face_obj) in enumerate(detections):
             tid = det_to_track.get(i)
             if tid is None or tid not in tracks:
@@ -346,7 +354,6 @@ def run_attendance_session(class_meta) -> bool:
 
             tr = tracks[tid]
             if (now_perf - tr["last_eval"]) < TRACK_COOLDOWN_SEC:
-                # reuse recent result (why: avoid heavy compute per frame)
                 continue
 
             x1, y1, x2, y2 = _expand_and_clip_bbox(bbox, W, H, pad_ratio=PAD_RATIO)
@@ -354,7 +361,6 @@ def run_attendance_session(class_meta) -> bool:
             if face_img.size == 0:
                 continue
 
-            # Anti-spoof then match
             try:
                 face_resized = cv2.resize(face_img, (128, 128))
                 is_real, _, _ = check_real_or_spoof(face_resized, threshold=AS_THRESHOLD, double_check=AS_DOUBLECHK)
@@ -367,6 +373,7 @@ def run_attendance_session(class_meta) -> bool:
                 emb = getattr(face_obj, "embedding", None)
                 if emb is None:
                     emb = getattr(face_obj, "normed_embedding", None)
+
                 if emb is not None:
                     sid, _dist = find_matching_user(emb, db, threshold=MATCH_THRESH)
 
@@ -386,28 +393,20 @@ def run_attendance_session(class_meta) -> bool:
                     label = f"{full_name} ({status})"
 
                     if sid not in recognized_students:
-                        post_attendance_log(
-                            class_meta,
-                            {"student_id": sid, "first_name": first, "last_name": last},
-                            status
-                        )
+                        post_attendance_log(class_meta, {"student_id": sid, "first_name": first, "last_name": last}, status)
                         recognized_students.add(sid)
                         print(f"✅ Marked {full_name} as {status}")
                 else:
                     label, color = "Unknown", (0, 200, 200)
 
-            tr["label"] = label
-            tr["color"] = color
-            tr["sid"] = sid
-            tr["last_eval"] = now_perf
+            tr.update({"label": label, "color": color, "sid": sid, "last_eval": now_perf})
 
-        # Draw all current tracks
+        # Draw boxes
         for tid, tr in tracks.items():
             x1, y1, x2, y2 = tr["bbox"]
             cv2.rectangle(frame, (x1, y1), (x2, y2), tr["color"], 2)
             _draw_small_text(frame, f"{tr['label']}", (x1, max(18, y1 - 8)), tr["color"])
 
-        # OSD
         elapsed = _format_mmss(time.time() - t_start_wall)
         _draw_small_text(frame, f"Timer {elapsed}", (12, 22), (230, 230, 230), 0.6, 1)
         _draw_small_text(frame, f"FPS {fps:.1f}", (12, 42), (230, 230, 230), 0.6, 1)
@@ -429,7 +428,6 @@ def run_attendance_session(class_meta) -> bool:
 # -----------------------------
 if __name__ == "__main__":
     print("🚀 Attendance App is running... (CUDA:", cuda_ok, ")")
-
     while True:
         active, cls = read_active_class()
         if active:

@@ -94,9 +94,9 @@ def log_attendance(class_data, student_data, status="Present", class_start_time=
     parsed_start = _parse_class_start_time(class_start_time)
     if parsed_start:
         minutes_late = (now - parsed_start).total_seconds() / 60
-        if 1 <= minutes_late < 2:
+        if 1 <= minutes_late < 15:
             status = "Late"
-        elif minutes_late >= 2:
+        elif minutes_late >= 30:
             close_attendance_session(class_data["class_id"])
             print("⛔ Too late. Attendance window closed.")
             return None
