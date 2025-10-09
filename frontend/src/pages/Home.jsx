@@ -7,7 +7,7 @@ import HomeCallToAction from '../components/Home/HomeCallToAction';
 
 function Home() {
     return (
-        <div>
+        <div className='w-full'>
             <HomeHero />
             <HomeFeatures />
             <HomeAbout />
