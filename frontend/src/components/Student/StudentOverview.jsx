@@ -143,33 +143,67 @@ const StudentOverview = () => {
       </h2>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-10">
         {[
-          { label: "Classes Enrolled", value: overviewData.totalClasses },
-          { label: "Total Sessions", value: overviewData.totalSessions },
+          { label: "Classes Enrolled", value: overviewData.totalClasses, color: "emerald" },
+          { label: "Total Sessions", value: overviewData.totalSessions, color: "emerald" },
           {
             label: "Attendance Rate",
             value: `${overviewData.attendanceRate}%`,
-            gradient: getRateGradient(overviewData.attendanceRate), // ✅ dynamic red/orange/green
+            gradient: getRateGradient(overviewData.attendanceRate),
+            color: "emerald",
           },
           {
             label: "Total Lates",
             value: overviewData.late,
-            gradient: "from-amber-400/30 to-orange-600/20 text-amber-400", // ✅ fixed orange gradient
+            gradient: "from-amber-400/30 to-orange-600/20 text-amber-400",
+            color: "amber",
+          },
+          {
+            label: "Total Absents",
+            value: overviewData.absent,
+            gradient: "from-red-500/30 to-red-700/20 text-red-400",
+            color: "red",
           },
         ].map((card, i) => (
           <div
             key={i}
-            className={`p-5 rounded-xl border border-white/10 shadow-lg backdrop-blur-md ${
-              card.gradient
-                ? `bg-gradient-to-br ${card.gradient}`
-                : "bg-white/5"
-            }`}
+            className={`relative group p-5 rounded-xl border border-white/10 backdrop-blur-md
+              transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] transform 
+              hover:-translate-y-1 hover:scale-[1.05]
+              ${
+                card.color === "red"
+                  ? "hover:shadow-[0_0_25px_rgba(239,68,68,0.35)] hover:border-red-500/40"
+                  : card.color === "amber"
+                  ? "hover:shadow-[0_0_25px_rgba(250,204,21,0.35)] hover:border-amber-400/40"
+                  : "hover:shadow-[0_0_25px_rgba(16,185,129,0.35)] hover:border-emerald-400/40"
+              }
+              ${card.label === "Total Absents" ? "col-span-2 md:col-span-1" : ""}
+              ${card.gradient ? `bg-gradient-to-br ${card.gradient}` : "bg-white/5 hover:bg-white/10"}
+              overflow-hidden
+            `}
           >
-            <p className="text-gray-300 text-sm">{card.label}</p>
+            {/* ✨ subtle animated light sweep on hover */}
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+              <div
+                className={`absolute top-0 left-0 w-full h-full 
+                  ${
+                    card.color === "red"
+                      ? "bg-gradient-to-br from-red-500/10 via-red-400/5 to-transparent"
+                      : card.color === "amber"
+                      ? "bg-gradient-to-br from-amber-400/10 via-amber-300/5 to-transparent"
+                      : "bg-gradient-to-br from-emerald-400/10 via-emerald-300/5 to-transparent"
+                  }
+                  animate-[shine_2.5s_ease-in-out_infinite]
+                `}
+              ></div>
+            </div>
+
+            {/* Card Content */}
+            <p className="text-gray-300 text-sm tracking-wide">{card.label}</p>
             <h3
-              className={`text-2xl font-bold ${
-                card.gradient ? "" : "text-white"
+              className={`text-2xl font-extrabold mt-1 relative z-10 ${
+                card.gradient ? "drop-shadow-[0_0_8px_rgba(255,255,255,0.15)]" : "text-white"
               }`}
             >
               {card.value}

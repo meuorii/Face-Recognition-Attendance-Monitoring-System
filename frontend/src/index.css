@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+@keyframes shine {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translateX(-20%) translateY(-20%);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateX(20%) translateY(20%);
+  }
+}
