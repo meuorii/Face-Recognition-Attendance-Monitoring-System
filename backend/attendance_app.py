@@ -1,4 +1,4 @@
-# file: attendance_multiface_tracking.py
+# attendance_app.py
 import cv2
 import time
 import requests
@@ -25,7 +25,7 @@ LOG_URL       = f"{API_BASE}/log"
 POLL_INTERVAL = 5
 MATCH_THRESH  = 0.55
 SKIP_FRAMES   = 2
-PAD_RATIO     = 0.10
+PAD_RATIO     = 0.05
 AS_THRESHOLD  = 0.80
 AS_DOUBLECHK  = True
 WIN_NAME      = "Attendance Session"
@@ -63,7 +63,7 @@ providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if cuda_ok else ["
 ctx_id = 0 if cuda_ok else -1
 
 face_app = FaceAnalysis(name="buffalo_l", providers=providers)
-face_app.prepare(ctx_id=ctx_id, det_size=(640, 640))
+face_app.prepare(ctx_id=ctx_id, det_size=(384, 384))
 
 # -----------------------------
 # Load embeddings for CLASS only
@@ -236,7 +236,7 @@ def run_attendance_session(class_meta) -> bool:
         print("❌ Missing class_id in class_meta; aborting session.")
         return False
 
-    # Late grace
+    # Late grace period
     start_str = class_meta.get("attendance_start_time")
     grace_period = 15 * 60
     start_dt = None
@@ -251,11 +251,13 @@ def run_attendance_session(class_meta) -> bool:
         except Exception as e:
             print("⚠️ Failed to parse start time:", e)
 
+    # Load database
     db = load_embeddings_for_class(class_meta)
     recognized_students = set()
     tracks: Dict[int, dict] = {}
     next_track_id = 1
-    frame_count, faces, fps = 0, None, 0.0
+
+    frame_count, fps = 0, 0.0
     t_start_wall, t_last_fps = time.time(), _now()
 
     threading.Thread(target=poll_backend, args=(class_id,), daemon=True).start()
@@ -266,36 +268,71 @@ def run_attendance_session(class_meta) -> bool:
         print("❌ Camera not available.")
         return False
 
-    # --- Set camera resolution ---
+    # Camera resolution
     W, H = RESOLUTIONS.get(CAMERA_QUALITY, (1920, 1080))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  W)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, W)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
-    cap.set(cv2.CAP_PROP_FPS, 30)
+    cap.set(cv2.CAP_PROP_FPS, 60)
 
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(f"📷 Camera initialized at {actual_w}x{actual_h} @30FPS (Requested {CAMERA_QUALITY})")
+    print(f"📷 Camera initialized at {actual_w}x{actual_h} (requested {CAMERA_QUALITY})")
 
     cv2.namedWindow(WIN_NAME, cv2.WINDOW_NORMAL)
 
+    # ---------------- Threaded capture ----------------
+    from collections import deque
+    from concurrent.futures import ThreadPoolExecutor
+
+    frame_queue = deque(maxlen=5)
+    executor = ThreadPoolExecutor(max_workers=2)
+    future_faces = None
+
+    def camera_thread():
+        while session_active and not user_quit_app:
+            ok, f = cap.read()
+            if ok:
+                frame_queue.append(f)
+
+    threading.Thread(target=camera_thread, daemon=True).start()
+
+    # ---------------- Main loop ----------------
+    faces = None
+    future_faces = None
     while session_active and not user_quit_app:
-        ok, frame = cap.read()
-        if not ok:
+        if not frame_queue:
+            time.sleep(0.001)
             continue
 
+        frame = frame_queue.popleft()
         H, W = frame.shape[:2]
         frame_count += 1
 
-        # FPS
+        # FPS update
         now_perf = _now()
         dt = now_perf - t_last_fps
         if dt > 0:
             fps = 0.9 * fps + 0.1 * (1.0 / dt)
         t_last_fps = now_perf
 
-        # Detection refresh
-        if frame_count % SKIP_FRAMES == 0 or faces is None:
-            faces = face_app.get(frame)
+        # Adaptive skip frames
+        SKIP_FRAMES = 1
+
+        # Async detection
+        if future_faces is None:
+            future_faces = executor.submit(face_app.get, frame.copy())
+
+       
+        if future_faces and future_faces.done():
+            try:
+                new_faces = future_faces.result()
+                if new_faces is not None:
+                    faces = new_faces
+            except Exception as e:
+                print("⚠️ Face detection error:", e)
+                faces = None
+
+            future_faces = executor.submit(face_app.get, frame.copy())
 
         # Build detections
         detections = []
@@ -310,7 +347,7 @@ def run_attendance_session(class_meta) -> bool:
             detections.sort(key=lambda it: (it[0][2]-it[0][0]) * (it[0][3]-it[0][1]), reverse=True)
             detections = detections[:MAX_FACES]
 
-        # IoU association
+        # IoU match
         unmatched_det_idxs = set(range(len(detections)))
         det_to_track: Dict[int, int] = {}
         for tid, t in list(tracks.items()):
@@ -324,7 +361,10 @@ def run_attendance_session(class_meta) -> bool:
             if best_iou >= IOU_MATCH_THRESH:
                 det_to_track[best_idx] = tid
                 unmatched_det_idxs.remove(best_idx)
-                tracks[tid]["bbox"] = detections[best_idx][0]
+                old_bbox = np.array(tracks[tid]["bbox"], dtype=np.float32)
+                new_bbox = np.array(detections[best_idx][0], dtype=np.float32)
+                smoothed_bbox = old_bbox * 0.7 + new_bbox * 0.3  # blend ratio: 70% old + 30% new
+                tracks[tid]["bbox"] = smoothed_bbox.astype(int)
                 tracks[tid]["last_seen"] = now_perf
 
         # New tracks
@@ -342,9 +382,14 @@ def run_attendance_session(class_meta) -> bool:
             next_track_id += 1
 
         # Drop stale
-        for tid in list(tracks.keys()):
-            if now_perf - tracks[tid]["last_seen"] > TRACK_TIMEOUT_SEC:
-                del tracks[tid]
+        for tid, tr in tracks.items():
+            if now_perf - tr["last_seen"] > 0.15:
+                x1, y1, x2, y2 = tr["bbox"]
+                tr["bbox"] = (x1 + 1, y1 + 1, x2 + 1, y2 + 1)
+
+            x1, y1, x2, y2 = map(int, tr["bbox"])
+            cv2.rectangle(frame, (x1, y1), (x2, y2), tr["color"], 2)
+            _draw_small_text(frame, f"{tr['label']}", (x1, max(18, y1 - 8)), tr["color"])
 
         # Evaluate each assigned track
         for i, (bbox, face_obj) in enumerate(detections):
@@ -353,7 +398,7 @@ def run_attendance_session(class_meta) -> bool:
                 continue
 
             tr = tracks[tid]
-            if (now_perf - tr["last_eval"]) < TRACK_COOLDOWN_SEC:
+            if (now_perf - tr["last_eval"]) < (TRACK_COOLDOWN_SEC * 1.5):
                 continue
 
             x1, y1, x2, y2 = _expand_and_clip_bbox(bbox, W, H, pad_ratio=PAD_RATIO)
@@ -362,8 +407,9 @@ def run_attendance_session(class_meta) -> bool:
                 continue
 
             try:
-                face_resized = cv2.resize(face_img, (128, 128))
-                is_real, _, _ = check_real_or_spoof(face_resized, threshold=AS_THRESHOLD, double_check=AS_DOUBLECHK)
+                # Downscale to reduce anti-spoof lag
+                face_small = cv2.resize(face_img, (96, 96))
+                is_real, _, _ = check_real_or_spoof(face_small, threshold=AS_THRESHOLD, double_check=False)
             except Exception as e:
                 print("⚠️ Anti-spoof error:", e)
                 is_real = False
@@ -371,16 +417,15 @@ def run_attendance_session(class_meta) -> bool:
             color, label, sid = (0, 0, 255), "Spoof", None
             if is_real:
                 emb = getattr(face_obj, "embedding", None)
-                if emb is None:
+                if emb is None or not isinstance(emb, np.ndarray):
                     emb = getattr(face_obj, "normed_embedding", None)
-
                 if emb is not None:
                     sid, _dist = find_matching_user(emb, db, threshold=MATCH_THRESH)
 
                 if sid:
                     student = get_student_by_id(sid) or {}
                     first = student.get("first_name") or student.get("First_Name", "")
-                    last  = student.get("last_name")  or student.get("Last_Name", "")
+                    last = student.get("last_name") or student.get("Last_Name", "")
                     full_name = f"{first} {last}".strip() or sid
 
                     status, color = "Present", (40, 200, 60)
@@ -412,7 +457,10 @@ def run_attendance_session(class_meta) -> bool:
         _draw_small_text(frame, f"FPS {fps:.1f}", (12, 42), (230, 230, 230), 0.6, 1)
         _draw_small_text(frame, f"Faces {len(detections)}  Recognized {len(recognized_students)}/{len(db)}", (12, 62), (180, 255, 180), 0.6, 1)
 
-        cv2.imshow(WIN_NAME, frame)
+        # Render at smaller size for speed
+        display = cv2.resize(frame, (1280, 720))
+        cv2.imshow(WIN_NAME, display)
+
         if cv2.waitKey(1) & 0xFF == ord("q"):
             user_quit_app, session_active = True, False
             set_backend_inactive(class_id)
