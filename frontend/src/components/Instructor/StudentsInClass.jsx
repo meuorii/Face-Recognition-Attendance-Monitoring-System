@@ -37,18 +37,32 @@ const StudentsInClass = () => {
   };
 
   const fetchStudents = async (classId) => {
-    if (!classId) return;
-    setLoadingStudents(true);
-    try {
-      const data = await getAssignedStudents(classId);
-      setStudents(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to fetch students:", err);
-      toast.error("⚠ Failed to fetch students.");
-    } finally {
-      setLoadingStudents(false);
-    }
-  };
+  if (!classId) return;
+  setLoadingStudents(true);
+  try {
+    const data = await getAssignedStudents(classId);
+
+    // ✅ Ensure data is an array and sort alphabetically by last_name, then first_name
+    const sortedStudents = Array.isArray(data)
+      ? [...data].sort((a, b) => {
+          const lastA = a.last_name?.toLowerCase() || "";
+          const lastB = b.last_name?.toLowerCase() || "";
+          if (lastA < lastB) return -1;
+          if (lastA > lastB) return 1;
+          const firstA = a.first_name?.toLowerCase() || "";
+          const firstB = b.first_name?.toLowerCase() || "";
+          return firstA.localeCompare(firstB);
+        })
+      : [];
+
+    setStudents(sortedStudents);
+  } catch (err) {
+    console.error("Failed to fetch students:", err);
+    toast.error("⚠ Failed to fetch students.");
+  } finally {
+    setLoadingStudents(false);
+  }
+};
 
   const handleSelectClass = (classId) => {
     setSelectedClass(classId);

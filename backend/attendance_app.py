@@ -26,7 +26,7 @@ POLL_INTERVAL = 5
 MATCH_THRESH  = 0.55
 SKIP_FRAMES   = 2
 PAD_RATIO     = 0.05
-AS_THRESHOLD  = 0.80
+AS_THRESHOLD  = 0.65
 AS_DOUBLECHK  = True
 WIN_NAME      = "Attendance Session"
 
@@ -39,11 +39,11 @@ RESOLUTIONS = {
 }
 
 # Multi-face & tracking
-MAX_FACES              = 8
+MAX_FACES              = 15
 MIN_FACE_SIZE          = 60
 IOU_MATCH_THRESH       = 0.30
 TRACK_TIMEOUT_SEC      = 1.5
-TRACK_COOLDOWN_SEC     = 0.75
+TRACK_COOLDOWN_SEC     = 2.5
 
 # Philippine Standard Time (UTC+8)
 PH_TZ = timezone(timedelta(hours=8))
@@ -58,12 +58,15 @@ session_skipped = False
 # -----------------------------
 # Init InsightFace
 # -----------------------------
-cuda_ok = torch.cuda.is_available()
-providers = ["CUDAExecutionProvider", "CPUExecutionProvider"] if cuda_ok else ["CPUExecutionProvider"]
-ctx_id = 0 if cuda_ok else -1
+cuda_ok = False
+providers = ["CPUExecutionProvider"]
+ctx_id = -1
+print("🧠 Running on CPU mode (real-time smooth detection)")
+
+torch.set_num_threads(4)
 
 face_app = FaceAnalysis(name="buffalo_l", providers=providers)
-face_app.prepare(ctx_id=ctx_id, det_size=(384, 384))
+face_app.prepare(ctx_id=ctx_id, det_size=(320, 320))
 
 # -----------------------------
 # Load embeddings for CLASS only
@@ -346,10 +349,31 @@ def run_attendance_session(class_meta) -> bool:
                 detections.append(((x1, y1, x2, y2), f))
             detections.sort(key=lambda it: (it[0][2]-it[0][0]) * (it[0][3]-it[0][1]), reverse=True)
             detections = detections[:MAX_FACES]
+            # --- Apply Non-Maximum Suppression (remove overlapping duplicates) ---
+            def nms(dets, iou_thresh=0.35):
+                if not dets:
+                    return []
+                boxes = np.array([d[0] for d in dets])
+                scores = np.array([(d[1].det_score if hasattr(d[1], "det_score") else 1.0) for d in dets])
+                idxs = scores.argsort()[::-1]
+                keep = []
+                while len(idxs) > 0:
+                    i = idxs[0]
+                    keep.append(dets[i])
+                    if len(idxs) == 1:
+                        break
+                    rest = idxs[1:]
+                    ious = np.array([_iou(boxes[i], boxes[j]) for j in rest])
+                    idxs = rest[ious < iou_thresh]
+                return keep
+
+            detections = nms(detections)
+
 
         # IoU match
         unmatched_det_idxs = set(range(len(detections)))
         det_to_track: Dict[int, int] = {}
+
         for tid, t in list(tracks.items()):
             t_bbox = t["bbox"]
             best_iou, best_idx = 0.0, -1
@@ -358,14 +382,32 @@ def run_attendance_session(class_meta) -> bool:
                 iou = _iou(t_bbox, det_bbox)
                 if iou > best_iou:
                     best_iou, best_idx = iou, i
-            if best_iou >= IOU_MATCH_THRESH:
+
+            # if stable enough, update track
+            if best_iou >= 0.25:  # slightly relaxed to prevent flicker
                 det_to_track[best_idx] = tid
                 unmatched_det_idxs.remove(best_idx)
-                old_bbox = np.array(tracks[tid]["bbox"], dtype=np.float32)
-                new_bbox = np.array(detections[best_idx][0], dtype=np.float32)
-                smoothed_bbox = old_bbox * 0.7 + new_bbox * 0.3  # blend ratio: 70% old + 30% new
-                tracks[tid]["bbox"] = smoothed_bbox.astype(int)
+
+                # --- smooth only if overlap is strong ---
+                if best_iou > 0.6:
+                    old_bbox = np.array(t_bbox, dtype=np.float32)
+                    new_bbox = np.array(detections[best_idx][0], dtype=np.float32)
+                    smoothed_bbox = old_bbox * 0.7 + new_bbox * 0.3
+                    tracks[tid]["bbox"] = tuple(map(int, smoothed_bbox))
+                else:
+                    tracks[tid]["bbox"] = detections[best_idx][0]
+
                 tracks[tid]["last_seen"] = now_perf
+            else:
+                # increment "missed" counter
+                t.setdefault("missed", 0)
+                t["missed"] += 1
+
+        # Drop stale tracks only if unseen for 1s
+        for tid in list(tracks.keys()):
+            tr = tracks[tid]
+            if now_perf - tr["last_seen"] > 1.0 or tr.get("missed", 0) > 5:
+                tracks.pop(tid, None)
 
         # New tracks
         for i in unmatched_det_idxs:
@@ -383,13 +425,15 @@ def run_attendance_session(class_meta) -> bool:
 
         # Drop stale
         for tid, tr in tracks.items():
-            if now_perf - tr["last_seen"] > 0.15:
+            if now_perf - tr["last_seen"] > 0.5:
                 x1, y1, x2, y2 = tr["bbox"]
-                tr["bbox"] = (x1 + 1, y1 + 1, x2 + 1, y2 + 1)
+                tr["bbox"] = (x1 + 0.5, y1 + 0.5, x2 + 0.5, y2 + 0.5)
 
             x1, y1, x2, y2 = map(int, tr["bbox"])
             cv2.rectangle(frame, (x1, y1), (x2, y2), tr["color"], 2)
             _draw_small_text(frame, f"{tr['label']}", (x1, max(18, y1 - 8)), tr["color"])
+            _draw_small_text(frame, f"Tracks {len(tracks)}", (12, 82), (230, 230, 230), 0.6, 1)
+
 
         # Evaluate each assigned track
         for i, (bbox, face_obj) in enumerate(detections):
@@ -407,9 +451,20 @@ def run_attendance_session(class_meta) -> bool:
                 continue
 
             try:
+                face_h, face_w = y2 - y1, x2 - x1
+                face_area = face_h * face_w
+                if face_h < 100 or face_w < 100:
+                    is_real = True
+                else: 
+                    if face_h < 160 or face_w < 160:
+                        face_img = cv2.resize(face_img, None, fx=1.5, fy=1.5, interpolation=cv2.INTER_CUBIC)
                 # Downscale to reduce anti-spoof lag
+                dynamic_thresh = 0.65 if face_area < 35000 else AS_THRESHOLD
                 face_small = cv2.resize(face_img, (96, 96))
-                is_real, _, _ = check_real_or_spoof(face_small, threshold=AS_THRESHOLD, double_check=False)
+                is_real, _, _ = check_real_or_spoof(face_small, threshold=dynamic_thresh, double_check=False)
+                gray = cv2.cvtColor(face_img, cv2.COLOR_BGR2GRAY)
+                gray = cv2.equalizeHist(gray)
+                face_img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
             except Exception as e:
                 print("⚠️ Anti-spoof error:", e)
                 is_real = False
@@ -448,7 +503,7 @@ def run_attendance_session(class_meta) -> bool:
 
         # Draw boxes
         for tid, tr in tracks.items():
-            x1, y1, x2, y2 = tr["bbox"]
+            x1, y1, x2, y2 = map(int, tr["bbox"])
             cv2.rectangle(frame, (x1, y1), (x2, y2), tr["color"], 2)
             _draw_small_text(frame, f"{tr['label']}", (x1, max(18, y1 - 8)), tr["color"])
 

@@ -37,6 +37,17 @@ const AttendanceSession = () => {
               })
             );
 
+            // ✅ Sort alphabetically by last_name then first_name
+            todayStudents.sort((a, b) => {
+              const lastA = a.last_name?.toLowerCase() || "";
+              const lastB = b.last_name?.toLowerCase() || "";
+              if (lastA < lastB) return -1;
+              if (lastA > lastB) return 1;
+              const firstA = a.first_name?.toLowerCase() || "";
+              const firstB = b.first_name?.toLowerCase() || "";
+              return firstA.localeCompare(firstB);
+            });
+
             setRecognizedStudents(todayStudents);
 
             if (todayStudents.length > 0) {
@@ -338,7 +349,7 @@ const AttendanceSession = () => {
                         s.status === "Present"
                           ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white"
                           : s.status === "Late"
-                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600 text-black"
+                          ? "bg-gradient-to-r from-yellow-400 to-yellow-600 text-white"
                           : "bg-gradient-to-r from-red-500 to-red-700 text-white"
                       }`}
                   >
